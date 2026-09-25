@@ -1,0 +1,35 @@
+{
+  "$schema": "../schema/layout.schema.json",
+  "name": "Canvas demo",
+  "description": "Free placement with x/y on a canvas. It deliberately leaves out a Reset button, so the app shows its missing-safety-control warning.",
+
+  "root": {
+    "type": "canvas",
+    "style": { "background": "@background" },
+    "children": [
+      { "type": "machineStatus", "x": 20, "y": 20, "width": 160, "height": 40 },
+      { "type": "connection", "x": 200, "y": 20, "width": 520, "height": 40, "kinds": ["simulator", "wifi"] },
+      {
+        "type": "panel", "title": "Position", "x": 20, "y": 80, "width": 300, "height": "auto", "spacing": 6,
+        "children": [
+          { "type": "axisReadout", "axis": "Y", "show": ["work"], "height": "auto" },
+          { "type": "axisReadout", "axis": "X", "show": ["work"], "height": "auto" },
+          { "type": "axisReadout", "axis": "Z", "show": ["work"], "height": "auto" }
+        ]
+      },
+      {
+        "type": "button", "text": "Hold", "command": "feedHold", "x": 340, "y": 80, "width": 120, "height": 120,
+        "style": { "imagePlacement": "top", "imageWidth": 48, "imageHeight": 48, "fontWeight": "bold" },
+        "visuals": { "normal": { "image": "assets/hold.svg" }, "pressed": { "image": "assets/hold-pressed.svg" } }
+      },
+      {
+        "type": "button", "text": "Stop", "command": "stop", "x": 470, "y": 80, "width": 120, "height": 120,
+        "style": { "imagePlacement": "top", "imageWidth": 48, "imageHeight": 48, "fontWeight": "bold" },
+        "visuals": { "normal": { "image": "assets/stop.svg" }, "pressed": { "image": "assets/stop-pressed.svg" } }
+      },
+      { "type": "jogPad", "axes": ["X", "Y"], "x": 340, "y": 220, "width": 250, "height": 250 },
+      { "type": "toolpath", "x": "50%", "y": 80, "width": "48%", "height": "80%" },
+      { "type": "console", "x": 20, "y": 490, "width": 570, "height": 200 }
+    ]
+  }
+}

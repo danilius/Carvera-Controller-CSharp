@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="../Carvera.Core/Carvera.Core.csproj" />
+    <InternalsVisibleTo Include="Carvera.Tests" />
+  </ItemGroup>
+</Project>
