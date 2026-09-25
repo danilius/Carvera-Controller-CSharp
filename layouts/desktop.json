@@ -179,6 +179,12 @@
           { "type": "connection", "width": "auto", "kinds": ["wifi", "usb", "simulator"] },
           { "type": "spacer" },
           { "type": "button", "class": "toolbar-button", "text": "Open file", "command": "openFile", "width": "auto", "visuals": { "normal": { "image": "builtin:folder" } } },
+          {
+            "type": "button", "class": "toolbar-button", "text": "Save as", "command": "saveFile", "width": "auto",
+            "enabled": "file.lineCount > 0", "tooltip": "Save the G-code, including tool changes made in the operations list",
+            "visuals": { "normal": { "image": "builtin:save" } },
+            "conditions": [ { "when": "file.modified", "text": "Save changes", "background": "@warningSoft", "borderColor": "@warning" } ]
+          },
           { "type": "layoutSelector", "width": 160 }
         ]
       },
@@ -191,10 +197,28 @@
             "type": "stack", "spacing": 10, "margin": "0 6 0 0",
             "children": [
               {
-                "type": "tabs",
+                "type": "split", "orientation": "horizontal", "sizes": ["*", "310"],
                 "children": [
-                  { "type": "toolpath", "title": "Toolpath" },
-                  { "type": "gcodeList", "title": "G-code {file.localName}" }
+                  {
+                    "type": "tabs", "margin": "0 6 0 0",
+                    "children": [
+                      {
+                        "type": "stack", "title": "3D view", "spacing": 6,
+                        "children": [
+                          { "type": "toolpath" },
+                          { "type": "gcodeScrubber", "height": "auto" }
+                        ]
+                      },
+                      { "type": "gcodeList", "title": "G-code {file.localName}" }
+                    ]
+                  },
+                  {
+                    "type": "stack", "spacing": 10, "margin": "6 0 0 0",
+                    "children": [
+                      { "type": "panel", "title": "Operations ({file.operationCount})", "children": [ { "type": "operationList" } ] },
+                      { "type": "panel", "title": "Tools", "height": "38%", "children": [ { "type": "toolList" } ] }
+                    ]
+                  }
                 ]
               },
               {
@@ -202,7 +226,7 @@
                 "text": "{job.percent:0}%  ·  line {job.lines}  ·  {job.seconds} s"
               },
               {
-                "type": "panel", "title": "Console", "height": 230, "spacing": 6,
+                "type": "panel", "title": "Console", "height": 210, "spacing": 6,
                 "children": [
                   { "type": "console" },
                   { "type": "mdi", "height": "auto" }

@@ -34,6 +34,17 @@ public sealed class Theme
         ["axisA"] = "#B45309",
         ["lampOff"] = "#CBD5E1",
         ["lampOn"] = "#22C55E",
+        // Operation colours in G-code views, used in turn (operation1 for the first operation...).
+        ["operation1"] = "#2563EB",
+        ["operation2"] = "#DC2626",
+        ["operation3"] = "#16A34A",
+        ["operation4"] = "#D97706",
+        ["operation5"] = "#7C3AED",
+        ["operation6"] = "#0891B2",
+        ["operation7"] = "#DB2777",
+        ["operation8"] = "#65A30D",
+        ["operation9"] = "#EA580C",
+        ["operation10"] = "#4F46E5",
         ["fontFamily"] = "Segoe UI, Inter, Noto Sans, sans-serif",
         ["monoFontFamily"] = "Cascadia Mono, Consolas, DejaVu Sans Mono, monospace",
         ["fontSize"] = "13",
@@ -70,4 +81,10 @@ public sealed class Theme
 
     public IBrush? Brush(string? text) => ResolveColor(text) is { } c ? new SolidColorBrush(c) : null;
     public IBrush TokenBrush(string token) => Brush("@" + token) ?? Brushes.Magenta;
+
+    public const int OperationColorCount = 10;
+
+    /// <summary>Colour of the operation with this 0-based index (cycling through operation1..10).</summary>
+    public Color OperationColor(int index) =>
+        ResolveColor($"@operation{(index < 0 ? 0 : index % OperationColorCount) + 1}") ?? Colors.SteelBlue;
 }

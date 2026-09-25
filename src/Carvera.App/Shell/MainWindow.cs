@@ -307,4 +307,56 @@ public sealed class MainWindow : Window, IAppHost
         Dispatcher.UIThread.Post(Close);
         return Task.CompletedTask;
     }
+
+    public async Task SaveFileAsync(string? path)
+    {
+        var program = _services.Program ?? throw new InvalidOperationException("No G-code file is open.");
+        if (path is null)
+        {
+            var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+            {
+                Title = "Save G-code as",
+                SuggestedFileName = program.Path is { } p ? Path.GetFileNameWithoutExtension(p) + "-edited" + Path.GetExtension(p) : "program.nc",
+                DefaultExtension = program.Path is { } q ? Path.GetExtension(q).TrimStart('.') : "nc",
+            });
+            path = file?.TryGetLocalPath();
+            if (path is null) return;
+        }
+        await File.WriteAllLinesAsync(path, program.Lines);
+        _services.SetProgram(GcodeProgram.Parse(program.Lines, path));
+        _services.Console.Info($"Saved {Path.GetFileName(path)}.");
+    }
+
+    public Task SetOperationToolAsync(int operation, int tool)
+    {
+        var program = _services.Program ?? throw new InvalidOperationException("No G-code file is open.");
+        if (operation < 0 || operation >= program.Operations.Count) throw new ArgumentException($"There is no operation {operation}.");
+        var op = program.Operations[operation];
+        if (op.Tool == tool) return Task.CompletedTask;
+        var edited = GcodeEditor.ChangeOperationTool(program.Lines, program.Operations, operation, tool);
+        Dispatcher.UIThread.Post(() => _services.EditProgram(edited));
+        _services.Console.Info($"“{op.Name}” now uses T{tool} (was {(op.Tool is { } t ? $"T{t}" : "no tool")}). Save the file to keep the change.");
+        return Task.CompletedTask;
+    }
+
+    public Task StepPreviewAsync(int? delta)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (delta is null) _services.SetPreviewSegment(-1);
+            else
+            {
+                var current = _services.State.Get(StatePaths.PreviewSegment, -1);
+                if (current < 0) current = delta > 0 ? -1 : _services.Program?.Segments.Count ?? 0;
+                _services.SetPreviewSegment(Math.Max(0, current + delta.Value));
+            }
+        });
+        return Task.CompletedTask;
+    }
+
+    public Task SelectOperationAsync(int operation)
+    {
+        Dispatcher.UIThread.Post(() => _services.SelectOperation(operation));
+        return Task.CompletedTask;
+    }
 }

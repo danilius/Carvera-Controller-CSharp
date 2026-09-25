@@ -75,6 +75,8 @@ public class WindowTests
             await Settle(window, 800);
             var sample = Path.Combine(AppContext.BaseDirectory, "samples", "demo.nc");
             if (File.Exists(sample)) await window.OpenFileAsync(sample);
+            // Scrub part-way through so the preview shows executed, pending and per-operation colours.
+            if (window.Services.Program is { } program) window.Services.SetPreviewLine(program.Operations[2].StartLine + 10);
             window.Services.State.Set("switch.light", true);
             await Settle(window, 300);
             var frame = window.CaptureRenderedFrame();

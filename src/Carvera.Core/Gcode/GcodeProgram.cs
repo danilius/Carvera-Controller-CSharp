@@ -17,6 +17,11 @@ public sealed class GcodeProgram
         Path = path;
         Lines = lines;
         Segments = segments;
+        (Tools, Operations) = GcodeStructure.Analyze(lines);
+        _lineOperation = new int[lines.Count + 2];
+        Array.Fill(_lineOperation, -1);
+        foreach (var op in Operations)
+            for (var l = op.StartLine; l <= op.EndLine; l++) _lineOperation[l + 1] = op.Index; // indexed by 1-based line number
         if (segments.Count > 0)
         {
             Min = new Point3(segments.Min(s => Math.Min(s.Start.X, s.End.X)), segments.Min(s => Math.Min(s.Start.Y, s.End.Y)), segments.Min(s => Math.Min(s.Start.Z, s.End.Z)));
@@ -29,6 +34,28 @@ public sealed class GcodeProgram
     public IReadOnlyList<PathSegment> Segments { get; }
     public Point3 Min { get; }
     public Point3 Max { get; }
+    public IReadOnlyList<GcodeTool> Tools { get; }
+    public IReadOnlyList<GcodeOperation> Operations { get; }
+    private readonly int[] _lineOperation;
+
+    /// <summary>The operation containing a 1-based line number, or -1 (e.g. the file header).</summary>
+    public int OperationOfLine(int line) => line >= 0 && line < _lineOperation.Length ? _lineOperation[line] : -1;
+
+    /// <summary>Index of the last segment produced by a line at or before the 1-based line number, or -1.</summary>
+    public int LastSegmentAtOrBefore(int line)
+    {
+        int lo = 0, hi = Segments.Count - 1, found = -1;
+        while (lo <= hi)
+        {
+            var mid = (lo + hi) / 2;
+            if (Segments[mid].Line <= line) { found = mid; lo = mid + 1; }
+            else hi = mid - 1;
+        }
+        return found;
+    }
+
+    /// <summary>A copy of this program with different text (e.g. after an edit), keeping the path.</summary>
+    public GcodeProgram WithLines(IReadOnlyList<string> lines) => Parse(lines, Path);
 
     public static GcodeProgram Load(string path) => Parse(File.ReadAllLines(path), path);
 
