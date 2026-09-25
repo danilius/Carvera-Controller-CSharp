@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Carvera.Core/Carvera.Core.csproj" />
+    <Project Path="src/Carvera.Layout/Carvera.Layout.csproj" />
+    <Project Path="src/Carvera.App/Carvera.App.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Carvera.Tests/Carvera.Tests.csproj" />
+    <Project Path="tests/Carvera.App.Tests/Carvera.App.Tests.csproj" />
+  </Folder>
+</Solution>

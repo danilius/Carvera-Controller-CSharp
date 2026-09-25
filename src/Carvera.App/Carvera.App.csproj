@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <AssemblyName>CarveraController</AssemblyName>
+    <RootNamespace>Carvera.App</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
+  </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Carvera.App.Tests" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Carvera.Core/Carvera.Core.csproj" />
+    <ProjectReference Include="../Carvera.Layout/Carvera.Layout.csproj" />
+    <PackageReference Include="Avalonia.Desktop" Version="12.1.2" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.2" />
+    <PackageReference Include="Svg.Controls.Skia.Avalonia" Version="12.0.0.17" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="../../layouts/**/*" LinkBase="layouts" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <None Include="../../schema/*.json" LinkBase="schema" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <EmbeddedResource Include="../../layouts/desktop.json" LogicalName="Carvera.App.DefaultLayout.json" />
+  </ItemGroup>
+</Project>

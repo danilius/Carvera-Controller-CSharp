@@ -1,0 +1,130 @@
+{
+  "$schema": "../schema/layout.schema.json",
+  "name": "Touch panel",
+  "description": "Large controls for a touchscreen beside the machine. The readout row runs Z, X, Y left to right; every region has a fixed size, so space they do not cover is left empty.",
+  "window": { "minWidth": 1024, "minHeight": 700 },
+
+  "theme": {
+    "accent": "#0F766E",
+    "accentSoft": "#CCFBF1",
+    "hover": "#F0FDFA",
+    "pressed": "#CCFBF1",
+    "fontSize": "15"
+  },
+
+  "styles": {
+    "big": { "fontSize": 20, "fontWeight": "semibold", "cornerRadius": 14 },
+    "safety": { "fontSize": 18, "fontWeight": "bold", "imagePlacement": "left", "imageWidth": 44, "imageHeight": 44, "cornerRadius": 14, "padding": "8 16", "textAlign": "left" },
+    "readout": { "fontSize": 20, "padding": "10 16", "cornerRadius": 14 }
+  },
+
+  "root": {
+    "type": "stack",
+    "padding": 16,
+    "spacing": 16,
+    "children": [
+      {
+        "type": "stack", "orientation": "horizontal", "height": 48, "spacing": 12,
+        "children": [
+          { "type": "machineStatus", "width": 180, "class": "big" },
+          { "type": "connection", "width": 520, "kinds": ["wifi", "simulator"] },
+          { "type": "layoutSelector", "width": 180 }
+        ]
+      },
+      {
+        "type": "stack", "id": "readouts", "orientation": "horizontal", "height": 110, "spacing": 16,
+        "children": [
+          { "type": "axisReadout", "axis": "Z", "show": ["work"], "orientation": "vertical", "width": 260, "class": "readout" },
+          { "type": "axisReadout", "axis": "X", "show": ["work"], "orientation": "vertical", "width": 260, "class": "readout" },
+          { "type": "axisReadout", "axis": "Y", "show": ["work"], "orientation": "vertical", "width": 260, "class": "readout" }
+        ]
+      },
+      {
+        "type": "stack", "orientation": "horizontal", "height": 430, "spacing": 16,
+        "children": [
+          {
+            "type": "panel", "title": "Jog  ·  step {jog.step} mm", "width": 520, "height": 430, "spacing": 10,
+            "children": [
+              {
+                "type": "jogPad", "axes": ["X", "Y", "Z"], "buttonSize": 92, "spacing": 10, "height": 296, "width": "auto",
+                "buttonVisuals": { "normal": { "fontSize": 16, "imageWidth": 30, "imageHeight": 30, "cornerRadius": 16 } }
+              },
+              { "type": "jogStep", "values": [0.1, 1, 10, 50], "height": 48, "optionVisuals": { "normal": { "fontSize": 17, "cornerRadius": 12 } } }
+            ]
+          },
+          {
+            "type": "stack", "width": 300, "height": 430, "spacing": 14,
+            "children": [
+              {
+                "type": "button", "class": "safety", "text": "Feed hold", "command": "pauseResume", "height": 92,
+                "visuals": {
+                  "normal": { "image": "assets/hold.svg", "background": "#FFFBEB", "borderColor": "#F59E0B", "borderWidth": 2 },
+                  "pressed": { "image": "assets/hold-pressed.svg", "background": "#FEF3C7" },
+                  "disabled": { "image": "assets/disabled.svg" }
+                },
+                "conditions": [
+                  { "when": "machine.state == 'Hold' || machine.state == 'Pause'", "text": "Resume", "image": "assets/resume.svg", "background": "#F0FDF4", "borderColor": "#16A34A" }
+                ]
+              },
+              {
+                "type": "button", "class": "safety", "text": "Stop", "command": "stop", "height": 92,
+                "visuals": {
+                  "normal": { "image": "assets/stop.svg", "background": "#FEF2F2", "borderColor": "#EF4444", "borderWidth": 2 },
+                  "pressed": { "image": "assets/stop-pressed.svg", "background": "#FEE2E2" },
+                  "disabled": { "image": "assets/disabled.svg" }
+                }
+              },
+              {
+                "type": "button", "class": "safety", "text": "Reset", "command": "reset", "height": 92,
+                "visuals": {
+                  "normal": { "image": "assets/reset.svg", "borderWidth": 2 },
+                  "disabled": { "image": "assets/disabled.svg" }
+                }
+              },
+              {
+                "type": "button", "class": "safety", "text": "Start", "command": "cycleStart", "height": 92,
+                "visuals": { "normal": { "image": "assets/start.svg", "borderWidth": 2 }, "disabled": { "image": "assets/disabled.svg" } }
+              }
+            ]
+          },
+          {
+            "type": "stack", "width": 260, "height": 430, "spacing": 14,
+            "children": [
+              { "type": "button", "class": "big", "text": "Zero X Y", "command": "setWorkZero", "args": { "axes": "XY" }, "height": 70 },
+              { "type": "button", "class": "big", "text": "Zero Z", "command": "setWorkZero", "args": { "axes": "Z" }, "height": 70 },
+              { "type": "button", "class": "big", "text": "Home", "command": "home", "confirm": "Home all axes now?", "height": 70 },
+              { "type": "button", "class": "big", "text": "Unlock", "command": "unlock", "height": 70,
+                "conditions": [ { "when": "machine.state == 'Alarm'", "background": "#FEE2E2", "borderColor": "#DC2626", "foreground": "#991B1B" } ] },
+              { "type": "button", "class": "big", "text": "Clearance", "command": "gotoClearance", "height": 70 }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "stack", "orientation": "horizontal", "height": 64, "spacing": 12,
+        "children": [
+          {
+            "type": "toggle", "class": "big", "text": "Light", "bind": "switch.light", "command": "setLight", "width": 150,
+            "visuals": {
+              "off": { "image": "assets/light-off.svg", "imageWidth": 30, "imageHeight": 30 },
+              "on": { "image": "assets/light-on.svg", "imageWidth": 30, "imageHeight": 30, "background": "#FEFCE8", "foreground": "#854D0E", "borderColor": "#EAB308" }
+            }
+          },
+          {
+            "type": "toggle", "class": "big", "text": "Air", "bind": "switch.air", "command": "setAir", "width": 150,
+            "visuals": {
+              "off": { "image": "assets/air-off.svg", "imageWidth": 30, "imageHeight": 30 },
+              "on": { "image": "assets/air-on.svg", "imageWidth": 30, "imageHeight": 30, "background": "#F0F9FF", "foreground": "#075985", "borderColor": "#0284C7" }
+            }
+          },
+          { "type": "toggle", "class": "big", "text": "Vacuum", "bind": "switch.vacuum", "command": "setVacuum", "width": 150 },
+          { "type": "override", "kind": "feed", "width": 520, "height": 44, "valign": "center" }
+        ]
+      }
+    ]
+  },
+
+  "shortcuts": [
+    { "key": "Escape", "command": "feedHold" }
+  ]
+}

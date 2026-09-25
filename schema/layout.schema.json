@@ -1,0 +1,1954 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/danilius/carvera-controller-csharp/schema/layout.schema.json",
+  "title": "Carvera Controller C# layout",
+  "description": "Generated from the component catalog. Do not edit by hand.",
+  "type": "object",
+  "required": [
+    "root"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string",
+      "description": "Display name."
+    },
+    "description": {
+      "type": "string"
+    },
+    "window": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "width": {
+          "type": "number"
+        },
+        "height": {
+          "type": "number"
+        },
+        "minWidth": {
+          "type": "number"
+        },
+        "minHeight": {
+          "type": "number"
+        }
+      }
+    },
+    "theme": {
+      "type": "object",
+      "description": "Theme tokens, e.g. accent, background, surface, text, fontFamily, fontSize.",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "styles": {
+      "type": "object",
+      "description": "Named visual styles used through 'class'.",
+      "additionalProperties": {
+        "$ref": "#/$defs/visual"
+      }
+    },
+    "regions": {
+      "type": "object",
+      "description": "Named, reusable elements.",
+      "additionalProperties": {
+        "$ref": "#/$defs/node"
+      }
+    },
+    "root": {
+      "$ref": "#/$defs/node"
+    },
+    "shortcuts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "key",
+          "command"
+        ],
+        "properties": {
+          "key": {
+            "type": "string",
+            "description": "Key gesture, e.g. Ctrl+Up, F5, Escape."
+          },
+          "command": {
+            "type": "string",
+            "enum": [
+              "adjustJogStep",
+              "calibrateTool",
+              "changeTool",
+              "clampTool",
+              "clearAutoLevel",
+              "clearConsole",
+              "clearRotation",
+              "closeFile",
+              "connect",
+              "cycleStart",
+              "disconnect",
+              "dropTool",
+              "exit",
+              "feedHold",
+              "feedOverride",
+              "goto",
+              "gotoAnchor1",
+              "gotoAnchor2",
+              "gotoClearance",
+              "gotoMachineHome",
+              "gotoSafeZ",
+              "gotoWorkHome",
+              "gotoWorkOrigin",
+              "home",
+              "jog",
+              "laserScale",
+              "openFile",
+              "openLayout",
+              "pauseResume",
+              "playFile",
+              "reloadLayout",
+              "reset",
+              "resume",
+              "selectWcs",
+              "sendGcode",
+              "setAir",
+              "setJogFeed",
+              "setJogStep",
+              "setLaserMode",
+              "setLaserTest",
+              "setLight",
+              "setSpindle",
+              "setTool",
+              "setToolSensorPower",
+              "setVacuum",
+              "setVacuumMode",
+              "setWorkpieceCharge",
+              "setWorkPosition",
+              "setWorkZero",
+              "spindleOverride",
+              "stop",
+              "suspend",
+              "unclampTool",
+              "unlock"
+            ],
+            "description": "Command to run."
+          },
+          "args": {
+            "type": "object"
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "node": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Optional identifier, shown in diagnostics."
+        },
+        "class": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          ],
+          "description": "Named style(s) from the layout's 'styles', applied in order."
+        },
+        "width": {
+          "$ref": "#/$defs/size",
+          "description": "Omitted = fill the available width. Number = pixels, \"30%\", \"2*\" (weighted share) or \"auto\" (fit content)."
+        },
+        "height": {
+          "$ref": "#/$defs/size",
+          "description": "Omitted = fill the available height. Same forms as width."
+        },
+        "minWidth": {
+          "type": "number",
+          "description": "Minimum width in pixels."
+        },
+        "maxWidth": {
+          "type": "number",
+          "description": "Maximum width in pixels."
+        },
+        "minHeight": {
+          "type": "number",
+          "description": "Minimum height in pixels."
+        },
+        "maxHeight": {
+          "type": "number",
+          "description": "Maximum height in pixels."
+        },
+        "margin": {
+          "$ref": "#/$defs/edges",
+          "description": "Space outside the element, CSS order: 8 | \"8 4\" | \"t r b l\"."
+        },
+        "padding": {
+          "$ref": "#/$defs/edges",
+          "description": "Space inside the element's border."
+        },
+        "align": {
+          "type": "string",
+          "enum": [
+            "start",
+            "center",
+            "end",
+            "stretch"
+          ],
+          "description": "Horizontal placement when the element is narrower than its slot."
+        },
+        "valign": {
+          "type": "string",
+          "enum": [
+            "start",
+            "center",
+            "end",
+            "stretch"
+          ],
+          "description": "Vertical placement when the element is shorter than its slot."
+        },
+        "visible": {
+          "type": [
+            "string",
+            "boolean"
+          ],
+          "description": "false hides the element; an expression shows it conditionally."
+        },
+        "enabled": {
+          "type": [
+            "string",
+            "boolean"
+          ],
+          "description": "false or an expression that disables the element."
+        },
+        "tooltip": {
+          "type": "string",
+          "description": "Hover text."
+        },
+        "style": {
+          "$ref": "#/$defs/visual",
+          "description": "Visual properties applied to this element."
+        },
+        "visuals": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/visual"
+          },
+          "description": "Visual properties (including images) per state, e.g. { \"hover\": {...}, \"disabled\": {...} }."
+        },
+        "conditions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/condition"
+          },
+          "description": "Array of { \"when\": expression, ...visual properties }. Matching entries apply in order, last wins."
+        },
+        "row": {
+          "type": "number",
+          "description": "Grid row (0-based)."
+        },
+        "column": {
+          "type": "number",
+          "description": "Grid column (0-based)."
+        },
+        "rowSpan": {
+          "type": "number",
+          "description": "Grid rows spanned."
+        },
+        "columnSpan": {
+          "type": "number",
+          "description": "Grid columns spanned."
+        },
+        "x": {
+          "$ref": "#/$defs/size",
+          "description": "Canvas: left offset in pixels or percent."
+        },
+        "y": {
+          "$ref": "#/$defs/size",
+          "description": "Canvas: top offset in pixels or percent."
+        },
+        "title": {
+          "type": "string",
+          "description": "Tabs: the tab header. Panel: the caption."
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "stack",
+            "grid",
+            "split",
+            "tabs",
+            "scroll",
+            "canvas",
+            "panel",
+            "text",
+            "value",
+            "axisReadout",
+            "machineStatus",
+            "indicator",
+            "progress",
+            "image",
+            "spacer",
+            "button",
+            "toggle",
+            "choice",
+            "jogStep",
+            "wcsSelector",
+            "slider",
+            "override",
+            "jogPad",
+            "mdi",
+            "console",
+            "connection",
+            "toolpath",
+            "gcodeList",
+            "layoutSelector"
+          ],
+          "description": "Element type."
+        },
+        "children": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/node"
+          },
+          "description": "Child elements (containers only)."
+        },
+        "child": {
+          "$ref": "#/$defs/node",
+          "description": "Single child (scroll)."
+        },
+        "region": {
+          "type": "string",
+          "description": "Use a named region from 'regions'; other properties here override the region's."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "stack"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "description": "Lays children out in a row or column. Children without a size share the free space equally.",
+            "properties": {
+              "orientation": {
+                "type": "string",
+                "enum": [
+                  "horizontal",
+                  "vertical"
+                ],
+                "description": "Direction children are laid out."
+              },
+              "spacing": {
+                "type": "number",
+                "description": "Gap between children in pixels."
+              },
+              "justify": {
+                "type": "string",
+                "enum": [
+                  "start",
+                  "center",
+                  "end",
+                  "space-between",
+                  "space-around",
+                  "space-evenly"
+                ],
+                "description": "Where leftover space goes when no child fills it."
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "grid"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "description": "Rows and columns. Children choose a cell with row/column (and rowSpan/columnSpan).",
+            "properties": {
+              "columns": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/size"
+                },
+                "description": "Column sizes, e.g. [\"200\", \"*\", \"2*\", \"auto\"]."
+              },
+              "rows": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/size"
+                },
+                "description": "Row sizes."
+              },
+              "rowSpacing": {
+                "type": "number",
+                "description": "Gap between rows."
+              },
+              "columnSpacing": {
+                "type": "number",
+                "description": "Gap between columns."
+              },
+              "spacing": {
+                "type": "number",
+                "description": "Gap between children in pixels."
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "split"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "description": "Two or more panes separated by draggable splitters.",
+            "properties": {
+              "orientation": {
+                "type": "string",
+                "enum": [
+                  "horizontal",
+                  "vertical"
+                ],
+                "description": "Direction children are laid out."
+              },
+              "sizes": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/size"
+                },
+                "description": "Initial pane sizes; default is equal shares."
+              },
+              "splitterSize": {
+                "type": "number",
+                "description": "Splitter thickness in pixels."
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "tabs"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "description": "Shows one child at a time; each child's 'title' is its tab header.",
+            "properties": {
+              "placement": {
+                "type": "string",
+                "enum": [
+                  "top",
+                  "bottom",
+                  "left",
+                  "right"
+                ],
+                "description": "Where the tab headers sit."
+              },
+              "selected": {
+                "type": "number",
+                "description": "Initially selected tab (0-based)."
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "scroll"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "description": "Scrolls a single child that is larger than the available space.",
+            "properties": {
+              "orientation": {
+                "type": "string",
+                "enum": [
+                  "vertical",
+                  "horizontal",
+                  "both"
+                ],
+                "description": "Scroll direction."
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "canvas"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "description": "Free placement: children are positioned with x/y and sized with width/height. Uncovered areas stay empty.",
+            "properties": {}
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "panel"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "description": "A framed region with an optional caption. Children are stacked like 'stack'.",
+            "properties": {
+              "orientation": {
+                "type": "string",
+                "enum": [
+                  "horizontal",
+                  "vertical"
+                ],
+                "description": "Direction children are laid out."
+              },
+              "spacing": {
+                "type": "number",
+                "description": "Gap between children in pixels."
+              },
+              "justify": {
+                "type": "string",
+                "enum": [
+                  "start",
+                  "center",
+                  "end",
+                  "space-between",
+                  "space-around",
+                  "space-evenly"
+                ],
+                "description": "Leftover space placement."
+              },
+              "collapsible": {
+                "type": "boolean",
+                "description": "Lets the user collapse the panel by clicking its caption."
+              },
+              "collapsed": {
+                "type": "boolean",
+                "description": "Starts collapsed."
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "text"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "description": "Static or live text: \"X {axis.x.work:0.000}\".",
+            "properties": {
+              "text": {
+                "type": "string",
+                "description": "The text; {expression:format} inserts live values."
+              },
+              "wrap": {
+                "type": "boolean",
+                "description": "Wrap long text."
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "value"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "description": "A labelled live value.",
+            "properties": {
+              "bind": {
+                "type": [
+                  "string",
+                  "boolean"
+                ],
+                "description": "State path or expression to show."
+              },
+              "format": {
+                "type": "string",
+                "description": "Number format, e.g. 0.000, 0, 0%."
+              },
+              "label": {
+                "type": "string",
+                "description": "Caption."
+              },
+              "unit": {
+                "type": "string",
+                "description": "Unit suffix."
+              },
+              "orientation": {
+                "type": "string",
+                "enum": [
+                  "horizontal",
+                  "vertical"
+                ],
+                "description": "Caption beside (horizontal) or above (vertical) the value."
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "axisReadout"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "description": "Position of one axis in work, machine and/or offset coordinates.",
+            "properties": {
+              "axis": {
+                "type": "string",
+                "enum": [
+                  "X",
+                  "Y",
+                  "Z",
+                  "A"
+                ],
+                "description": "Axis to show."
+              },
+              "show": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "work",
+                    "machine",
+                    "offset"
+                  ]
+                },
+                "description": "Any of work, machine, offset (in display order)."
+              },
+              "format": {
+                "type": "string",
+                "description": "Number format, e.g. 0.000, 0, 0%."
+              },
+              "label": {
+                "type": "string",
+                "description": "Axis caption; defaults to the axis letter."
+              },
+              "orientation": {
+                "type": "string",
+                "enum": [
+                  "horizontal",
+                  "vertical"
+                ],
+                "description": "Caption beside or above the numbers."
+              },
+              "color": {
+                "$ref": "#/$defs/color",
+                "description": "Axis accent colour."
+              },
+              "command": {
+                "type": "string",
+                "enum": [
+                  "adjustJogStep",
+                  "calibrateTool",
+                  "changeTool",
+                  "clampTool",
+                  "clearAutoLevel",
+                  "clearConsole",
+                  "clearRotation",
+                  "closeFile",
+                  "connect",
+                  "cycleStart",
+                  "disconnect",
+                  "dropTool",
+                  "exit",
+                  "feedHold",
+                  "feedOverride",
+                  "goto",
+                  "gotoAnchor1",
+                  "gotoAnchor2",
+                  "gotoClearance",
+                  "gotoMachineHome",
+                  "gotoSafeZ",
+                  "gotoWorkHome",
+                  "gotoWorkOrigin",
+                  "home",
+                  "jog",
+                  "laserScale",
+                  "openFile",
+                  "openLayout",
+                  "pauseResume",
+                  "playFile",
+                  "reloadLayout",
+                  "reset",
+                  "resume",
+                  "selectWcs",
+                  "sendGcode",
+                  "setAir",
+                  "setJogFeed",
+                  "setJogStep",
+                  "setLaserMode",
+                  "setLaserTest",
+                  "setLight",
+                  "setSpindle",
+                  "setTool",
+                  "setToolSensorPower",
+                  "setVacuum",
+                  "setVacuumMode",
+                  "setWorkpieceCharge",
+                  "setWorkPosition",
+                  "setWorkZero",
+                  "spindleOverride",
+                  "stop",
+                  "suspend",
+                  "unclampTool",
+                  "unlock"
+                ],
+                "description": "Command to run (see the command reference)."
+              },
+              "args": {
+                "type": "object",
+                "description": "Arguments for the command."
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "machineStatus"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "description": "Machine state (Idle, Run, Alarm...) with a colour per state.",
+            "properties": {
+              "text": {
+                "type": "string",
+                "description": "Defaults to \"{machine.state}\"."
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "indicator"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "description": "A lamp that is on or off according to an expression.",
+            "properties": {
+              "bind": {
+                "type": [
+                  "string",
+                  "boolean"
+                ],
+                "description": "On when true."
+              },
+              "text": {
+                "type": "string",
+                "description": "Caption."
+              },
+              "onText": {
+                "type": "string",
+                "description": "Caption while on."
+              },
+              "offText": {
+                "type": "string",
+                "description": "Caption while off."
+              },
+              "lampSize": {
+                "type": "number",
+                "description": "Diameter of the default lamp; 0 hides it."
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "progress"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "description": "A progress bar.",
+            "properties": {
+              "bind": {
+                "type": [
+                  "string",
+                  "boolean"
+                ],
+                "description": "Value; defaults to job.percent."
+              },
+              "min": {
+                "type": "number",
+                "description": "Minimum (0)."
+              },
+              "max": {
+                "type": "number",
+                "description": "Maximum (100)."
+              },
+              "text": {
+                "type": "string",
+                "description": "Text drawn on the bar."
+              },
+              "barColor": {
+                "$ref": "#/$defs/color",
+                "description": "Bar colour."
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "image"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "description": "A picture. Use 'visuals'/'conditions' to swap it by state.",
+            "properties": {
+              "source": {
+                "type": "string",
+                "description": "Image file or builtin:<name>."
+              },
+              "stretch": {
+                "type": "string",
+                "enum": [
+                  "none",
+                  "fill",
+                  "uniform",
+                  "uniformToFill"
+                ],
+                "description": "How the image fills its box."
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "spacer"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "description": "Empty space. Give it a size, or leave it unsized to absorb free space.",
+            "properties": {}
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "button"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "description": "Runs a command when clicked.",
+            "properties": {
+              "text": {
+                "type": "string",
+                "description": "Caption."
+              },
+              "command": {
+                "type": "string",
+                "enum": [
+                  "adjustJogStep",
+                  "calibrateTool",
+                  "changeTool",
+                  "clampTool",
+                  "clearAutoLevel",
+                  "clearConsole",
+                  "clearRotation",
+                  "closeFile",
+                  "connect",
+                  "cycleStart",
+                  "disconnect",
+                  "dropTool",
+                  "exit",
+                  "feedHold",
+                  "feedOverride",
+                  "goto",
+                  "gotoAnchor1",
+                  "gotoAnchor2",
+                  "gotoClearance",
+                  "gotoMachineHome",
+                  "gotoSafeZ",
+                  "gotoWorkHome",
+                  "gotoWorkOrigin",
+                  "home",
+                  "jog",
+                  "laserScale",
+                  "openFile",
+                  "openLayout",
+                  "pauseResume",
+                  "playFile",
+                  "reloadLayout",
+                  "reset",
+                  "resume",
+                  "selectWcs",
+                  "sendGcode",
+                  "setAir",
+                  "setJogFeed",
+                  "setJogStep",
+                  "setLaserMode",
+                  "setLaserTest",
+                  "setLight",
+                  "setSpindle",
+                  "setTool",
+                  "setToolSensorPower",
+                  "setVacuum",
+                  "setVacuumMode",
+                  "setWorkpieceCharge",
+                  "setWorkPosition",
+                  "setWorkZero",
+                  "spindleOverride",
+                  "stop",
+                  "suspend",
+                  "unclampTool",
+                  "unlock"
+                ],
+                "description": "Command to run (see the command reference)."
+              },
+              "args": {
+                "type": "object",
+                "description": "Arguments for the command."
+              },
+              "repeat": {
+                "type": "boolean",
+                "description": "Repeat while held (e.g. jogging)."
+              },
+              "confirm": {
+                "type": "string",
+                "description": "Ask for confirmation with this message first."
+              },
+              "active": {
+                "type": [
+                  "string",
+                  "boolean"
+                ],
+                "description": "Shows the 'active' state when true."
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "toggle"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "description": "An on/off switch bound to machine state.",
+            "properties": {
+              "text": {
+                "type": "string",
+                "description": "Caption."
+              },
+              "bind": {
+                "type": [
+                  "string",
+                  "boolean"
+                ],
+                "description": "On when true, e.g. switch.light."
+              },
+              "command": {
+                "type": "string",
+                "enum": [
+                  "adjustJogStep",
+                  "calibrateTool",
+                  "changeTool",
+                  "clampTool",
+                  "clearAutoLevel",
+                  "clearConsole",
+                  "clearRotation",
+                  "closeFile",
+                  "connect",
+                  "cycleStart",
+                  "disconnect",
+                  "dropTool",
+                  "exit",
+                  "feedHold",
+                  "feedOverride",
+                  "goto",
+                  "gotoAnchor1",
+                  "gotoAnchor2",
+                  "gotoClearance",
+                  "gotoMachineHome",
+                  "gotoSafeZ",
+                  "gotoWorkHome",
+                  "gotoWorkOrigin",
+                  "home",
+                  "jog",
+                  "laserScale",
+                  "openFile",
+                  "openLayout",
+                  "pauseResume",
+                  "playFile",
+                  "reloadLayout",
+                  "reset",
+                  "resume",
+                  "selectWcs",
+                  "sendGcode",
+                  "setAir",
+                  "setJogFeed",
+                  "setJogStep",
+                  "setLaserMode",
+                  "setLaserTest",
+                  "setLight",
+                  "setSpindle",
+                  "setTool",
+                  "setToolSensorPower",
+                  "setVacuum",
+                  "setVacuumMode",
+                  "setWorkpieceCharge",
+                  "setWorkPosition",
+                  "setWorkZero",
+                  "spindleOverride",
+                  "stop",
+                  "suspend",
+                  "unclampTool",
+                  "unlock"
+                ],
+                "description": "Command to run (see the command reference)."
+              },
+              "args": {
+                "type": "object",
+                "description": "Arguments for the command."
+              },
+              "onArgs": {
+                "type": "object",
+                "description": "Arguments used when turning on."
+              },
+              "offArgs": {
+                "type": "object",
+                "description": "Arguments used when turning off."
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "choice"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "description": "A row or column of mutually exclusive options.",
+            "properties": {
+              "bind": {
+                "type": [
+                  "string",
+                  "boolean"
+                ],
+                "description": "Current value."
+              },
+              "options": {
+                "type": "array",
+                "description": "Array of { \"value\": ..., \"text\": ..., \"image\": ... } or plain values."
+              },
+              "command": {
+                "type": "string",
+                "enum": [
+                  "adjustJogStep",
+                  "calibrateTool",
+                  "changeTool",
+                  "clampTool",
+                  "clearAutoLevel",
+                  "clearConsole",
+                  "clearRotation",
+                  "closeFile",
+                  "connect",
+                  "cycleStart",
+                  "disconnect",
+                  "dropTool",
+                  "exit",
+                  "feedHold",
+                  "feedOverride",
+                  "goto",
+                  "gotoAnchor1",
+                  "gotoAnchor2",
+                  "gotoClearance",
+                  "gotoMachineHome",
+                  "gotoSafeZ",
+                  "gotoWorkHome",
+                  "gotoWorkOrigin",
+                  "home",
+                  "jog",
+                  "laserScale",
+                  "openFile",
+                  "openLayout",
+                  "pauseResume",
+                  "playFile",
+                  "reloadLayout",
+                  "reset",
+                  "resume",
+                  "selectWcs",
+                  "sendGcode",
+                  "setAir",
+                  "setJogFeed",
+                  "setJogStep",
+                  "setLaserMode",
+                  "setLaserTest",
+                  "setLight",
+                  "setSpindle",
+                  "setTool",
+                  "setToolSensorPower",
+                  "setVacuum",
+                  "setVacuumMode",
+                  "setWorkpieceCharge",
+                  "setWorkPosition",
+                  "setWorkZero",
+                  "spindleOverride",
+                  "stop",
+                  "suspend",
+                  "unclampTool",
+                  "unlock"
+                ],
+                "description": "Command to run (see the command reference)."
+              },
+              "argName": {
+                "type": "string",
+                "description": "Argument that receives the option value (default 'value')."
+              },
+              "args": {
+                "type": "object",
+                "description": "Arguments for the command."
+              },
+              "orientation": {
+                "type": "string",
+                "enum": [
+                  "horizontal",
+                  "vertical"
+                ],
+                "description": "Direction children are laid out."
+              },
+              "spacing": {
+                "type": "number",
+                "description": "Gap between children in pixels."
+              },
+              "optionVisuals": {
+                "type": "object",
+                "additionalProperties": {
+                  "$ref": "#/$defs/visual"
+                },
+                "description": "Visuals for each option button (normal, hover, pressed, disabled, selected)."
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "jogStep"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "description": "Jog step selector (a 'choice' preset).",
+            "properties": {
+              "values": {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                },
+                "description": "Steps in mm (default 0.01, 0.1, 1, 10, 100)."
+              },
+              "orientation": {
+                "type": "string",
+                "enum": [
+                  "horizontal",
+                  "vertical"
+                ],
+                "description": "Direction children are laid out."
+              },
+              "spacing": {
+                "type": "number",
+                "description": "Gap between children in pixels."
+              },
+              "optionVisuals": {
+                "type": "object",
+                "additionalProperties": {
+                  "$ref": "#/$defs/visual"
+                },
+                "description": "Visuals for each option."
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "wcsSelector"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "description": "Work coordinate system selector G54-G59 (a 'choice' preset).",
+            "properties": {
+              "systems": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                ],
+                "description": "Systems to offer (default G54-G59)."
+              },
+              "orientation": {
+                "type": "string",
+                "enum": [
+                  "horizontal",
+                  "vertical"
+                ],
+                "description": "Direction children are laid out."
+              },
+              "spacing": {
+                "type": "number",
+                "description": "Gap between children in pixels."
+              },
+              "optionVisuals": {
+                "type": "object",
+                "additionalProperties": {
+                  "$ref": "#/$defs/visual"
+                },
+                "description": "Visuals for each option."
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "slider"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "description": "A slider that sends a command when released.",
+            "properties": {
+              "bind": {
+                "type": [
+                  "string",
+                  "boolean"
+                ],
+                "description": "Current value."
+              },
+              "command": {
+                "type": "string",
+                "enum": [
+                  "adjustJogStep",
+                  "calibrateTool",
+                  "changeTool",
+                  "clampTool",
+                  "clearAutoLevel",
+                  "clearConsole",
+                  "clearRotation",
+                  "closeFile",
+                  "connect",
+                  "cycleStart",
+                  "disconnect",
+                  "dropTool",
+                  "exit",
+                  "feedHold",
+                  "feedOverride",
+                  "goto",
+                  "gotoAnchor1",
+                  "gotoAnchor2",
+                  "gotoClearance",
+                  "gotoMachineHome",
+                  "gotoSafeZ",
+                  "gotoWorkHome",
+                  "gotoWorkOrigin",
+                  "home",
+                  "jog",
+                  "laserScale",
+                  "openFile",
+                  "openLayout",
+                  "pauseResume",
+                  "playFile",
+                  "reloadLayout",
+                  "reset",
+                  "resume",
+                  "selectWcs",
+                  "sendGcode",
+                  "setAir",
+                  "setJogFeed",
+                  "setJogStep",
+                  "setLaserMode",
+                  "setLaserTest",
+                  "setLight",
+                  "setSpindle",
+                  "setTool",
+                  "setToolSensorPower",
+                  "setVacuum",
+                  "setVacuumMode",
+                  "setWorkpieceCharge",
+                  "setWorkPosition",
+                  "setWorkZero",
+                  "spindleOverride",
+                  "stop",
+                  "suspend",
+                  "unclampTool",
+                  "unlock"
+                ],
+                "description": "Command to run (see the command reference)."
+              },
+              "argName": {
+                "type": "string",
+                "description": "Argument that receives the value (default 'value')."
+              },
+              "args": {
+                "type": "object",
+                "description": "Arguments for the command."
+              },
+              "min": {
+                "type": "number",
+                "description": "Minimum."
+              },
+              "max": {
+                "type": "number",
+                "description": "Maximum."
+              },
+              "step": {
+                "type": "number",
+                "description": "Snap interval."
+              },
+              "orientation": {
+                "type": "string",
+                "enum": [
+                  "horizontal",
+                  "vertical"
+                ],
+                "description": "Direction children are laid out."
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "override"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "description": "Feed, spindle or laser override: value, slider, -/+ and reset to 100%.",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "feed",
+                  "spindle",
+                  "laser"
+                ],
+                "description": "Which override."
+              },
+              "label": {
+                "type": "string",
+                "description": "Caption."
+              },
+              "increment": {
+                "type": "number",
+                "description": "Step for -/+ (default 10)."
+              },
+              "min": {
+                "type": "number",
+                "description": "Slider minimum (default 10)."
+              },
+              "max": {
+                "type": "number",
+                "description": "Slider maximum (default 200 / 300)."
+              },
+              "orientation": {
+                "type": "string",
+                "enum": [
+                  "horizontal",
+                  "vertical"
+                ],
+                "description": "Direction children are laid out."
+              },
+              "buttonVisuals": {
+                "type": "object",
+                "additionalProperties": {
+                  "$ref": "#/$defs/visual"
+                },
+                "description": "Visuals for the -, + and reset buttons."
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "jogPad"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "description": "Jog buttons for the chosen axes, using the current jog step and feed.",
+            "properties": {
+              "axes": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "X",
+                    "Y",
+                    "Z",
+                    "A"
+                  ]
+                },
+                "description": "Axes to include: X, Y, Z, A (default X, Y, Z)."
+              },
+              "diagonals": {
+                "type": "boolean",
+                "description": "Add XY diagonal buttons."
+              },
+              "buttonSize": {
+                "type": "number",
+                "description": "Button size in pixels (default: fill)."
+              },
+              "spacing": {
+                "type": "number",
+                "description": "Gap between buttons."
+              },
+              "buttonVisuals": {
+                "type": "object",
+                "additionalProperties": {
+                  "$ref": "#/$defs/visual"
+                },
+                "description": "Visuals applied to every jog button."
+              },
+              "images": {
+                "description": "Per-button images, keyed X+, X-, Y+, Y-, Z+, Z-, A+, A-, X+Y+ ... e.g. { \"X+\": \"assets/right.svg\" }."
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "mdi"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "description": "Manual command entry with history (Up/Down).",
+            "properties": {
+              "placeholder": {
+                "type": "string",
+                "description": "Hint text."
+              },
+              "buttonText": {
+                "type": "string",
+                "description": "Send button caption; empty hides the button."
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "console"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "description": "Machine traffic and messages.",
+            "properties": {
+              "maxLines": {
+                "type": "number",
+                "description": "Lines kept on screen (default 500)."
+              },
+              "showSent": {
+                "type": "boolean",
+                "description": "Show sent commands (default true)."
+              },
+              "showTimestamps": {
+                "type": "boolean",
+                "description": "Prefix lines with the time."
+              },
+              "fontSize": {
+                "type": "number",
+                "description": "Text size."
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "connection"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "description": "Connect/disconnect: Wi-Fi address, USB port or the built-in simulator, with network discovery.",
+            "properties": {
+              "kinds": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "wifi",
+                    "usb",
+                    "simulator"
+                  ]
+                },
+                "description": "Connection kinds offered (default wifi, usb, simulator)."
+              },
+              "orientation": {
+                "type": "string",
+                "enum": [
+                  "horizontal",
+                  "vertical"
+                ],
+                "description": "Direction children are laid out."
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "toolpath"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "description": "2D (XY) preview of the loaded G-code file with the current tool position.",
+            "properties": {
+              "showGrid": {
+                "type": "boolean",
+                "description": "Draw a grid (default true)."
+              },
+              "gridSize": {
+                "type": "number",
+                "description": "Grid pitch in mm (default 10)."
+              },
+              "pathColor": {
+                "$ref": "#/$defs/color",
+                "description": "Feed moves."
+              },
+              "rapidColor": {
+                "$ref": "#/$defs/color",
+                "description": "Rapid moves."
+              },
+              "positionColor": {
+                "$ref": "#/$defs/color",
+                "description": "Tool marker."
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "gcodeList"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "description": "The loaded G-code file with the current line highlighted.",
+            "properties": {
+              "fontSize": {
+                "type": "number",
+                "description": "Text size."
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "layoutSelector"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "description": "Switches between the available layout files.",
+            "properties": {}
+          }
+        }
+      ]
+    },
+    "size": {
+      "anyOf": [
+        {
+          "type": "number",
+          "minimum": 0
+        },
+        {
+          "type": "string",
+          "pattern": "^(auto|fill|\\*|\\d+(\\.\\d+)?(px|%|\\*)?)$"
+        }
+      ]
+    },
+    "edges": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 4
+        }
+      ]
+    },
+    "color": {
+      "type": "string",
+      "description": "#RGB, #RRGGBB, #AARRGGBB, a colour name or @themeToken."
+    },
+    "visual": {
+      "type": "object",
+      "properties": {
+        "background": {
+          "$ref": "#/$defs/color",
+          "description": "Fill colour, e.g. #FFFFFF or a theme token such as @surface."
+        },
+        "foreground": {
+          "$ref": "#/$defs/color",
+          "description": "Text colour."
+        },
+        "borderColor": {
+          "$ref": "#/$defs/color",
+          "description": "Border colour."
+        },
+        "borderWidth": {
+          "$ref": "#/$defs/edges",
+          "description": "Border thickness."
+        },
+        "cornerRadius": {
+          "type": "number",
+          "description": "Corner rounding in pixels."
+        },
+        "fontSize": {
+          "type": "number",
+          "description": "Text size."
+        },
+        "fontWeight": {
+          "type": "string",
+          "enum": [
+            "light",
+            "normal",
+            "medium",
+            "semibold",
+            "bold",
+            "black"
+          ],
+          "description": "Text weight."
+        },
+        "fontFamily": {
+          "type": "string",
+          "description": "Font family name(s)."
+        },
+        "fontStyle": {
+          "type": "string",
+          "enum": [
+            "normal",
+            "italic"
+          ],
+          "description": "Italic or normal."
+        },
+        "textAlign": {
+          "type": "string",
+          "enum": [
+            "left",
+            "center",
+            "right"
+          ],
+          "description": "Text alignment."
+        },
+        "opacity": {
+          "type": "number",
+          "description": "0 (invisible) to 1."
+        },
+        "image": {
+          "type": "string",
+          "description": "Image file (SVG, PNG, JPG) relative to the layout file, or builtin:<name>."
+        },
+        "imageWidth": {
+          "type": "number",
+          "description": "Image width in pixels."
+        },
+        "imageHeight": {
+          "type": "number",
+          "description": "Image height in pixels."
+        },
+        "imagePlacement": {
+          "type": "string",
+          "enum": [
+            "left",
+            "top",
+            "right",
+            "bottom",
+            "only",
+            "fill"
+          ],
+          "description": "Where the image sits relative to the text. 'fill' stretches it behind the content."
+        },
+        "text": {
+          "type": "string",
+          "description": "Replaces the element's text in this state."
+        },
+        "padding": {
+          "$ref": "#/$defs/edges",
+          "description": "Inner spacing in this state."
+        }
+      }
+    },
+    "condition": {
+      "type": "object",
+      "required": [
+        "when"
+      ],
+      "properties": {
+        "background": {
+          "$ref": "#/$defs/color",
+          "description": "Fill colour, e.g. #FFFFFF or a theme token such as @surface."
+        },
+        "foreground": {
+          "$ref": "#/$defs/color",
+          "description": "Text colour."
+        },
+        "borderColor": {
+          "$ref": "#/$defs/color",
+          "description": "Border colour."
+        },
+        "borderWidth": {
+          "$ref": "#/$defs/edges",
+          "description": "Border thickness."
+        },
+        "cornerRadius": {
+          "type": "number",
+          "description": "Corner rounding in pixels."
+        },
+        "fontSize": {
+          "type": "number",
+          "description": "Text size."
+        },
+        "fontWeight": {
+          "type": "string",
+          "enum": [
+            "light",
+            "normal",
+            "medium",
+            "semibold",
+            "bold",
+            "black"
+          ],
+          "description": "Text weight."
+        },
+        "fontFamily": {
+          "type": "string",
+          "description": "Font family name(s)."
+        },
+        "fontStyle": {
+          "type": "string",
+          "enum": [
+            "normal",
+            "italic"
+          ],
+          "description": "Italic or normal."
+        },
+        "textAlign": {
+          "type": "string",
+          "enum": [
+            "left",
+            "center",
+            "right"
+          ],
+          "description": "Text alignment."
+        },
+        "opacity": {
+          "type": "number",
+          "description": "0 (invisible) to 1."
+        },
+        "image": {
+          "type": "string",
+          "description": "Image file (SVG, PNG, JPG) relative to the layout file, or builtin:<name>."
+        },
+        "imageWidth": {
+          "type": "number",
+          "description": "Image width in pixels."
+        },
+        "imageHeight": {
+          "type": "number",
+          "description": "Image height in pixels."
+        },
+        "imagePlacement": {
+          "type": "string",
+          "enum": [
+            "left",
+            "top",
+            "right",
+            "bottom",
+            "only",
+            "fill"
+          ],
+          "description": "Where the image sits relative to the text. 'fill' stretches it behind the content."
+        },
+        "text": {
+          "type": "string",
+          "description": "Replaces the element's text in this state."
+        },
+        "padding": {
+          "$ref": "#/$defs/edges",
+          "description": "Inner spacing in this state."
+        },
+        "when": {
+          "type": "string",
+          "description": "Expression; the visual applies while it is true."
+        }
+      }
+    }
+  }
+}
