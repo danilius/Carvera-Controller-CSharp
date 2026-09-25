@@ -1,0 +1,25 @@
+Carvera Controller C#
+https://github.com/danilius/carvera-controller-csharp
+
+A C#/Avalonia port of the Community Carvera Controller.
+
+===============================================================================
+This product is derived from the Community Carvera Controller
+(https://github.com/Carvera-Community/CarveraController), licensed under the
+GNU General Public License version 2, which in turn includes software developed
+by Makera (https://github.com/MakeraInc/) and the following:
+
+1. bCNC
+   - Author: Vasilis Vlachoudis
+   - License: GPL 2.0
+   - URL: https://github.com/vlachoudis/bCNC
+
+The machine protocol handling in src/Carvera.Core (status and diagnose report
+parsing, command formats) is ported from that project.
+
+===============================================================================
+Third-party libraries used by this product:
+
+- Avalonia UI (MIT) - https://avaloniaui.net
+- Svg.Skia / Svg.Controls.Skia.Avalonia (MIT) - https://github.com/wieslawsoltes/Svg.Skia
+- System.IO.Ports (MIT) - https://github.com/dotnet/runtime
