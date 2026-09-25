@@ -21,7 +21,9 @@ Start with the **[layout guide](docs/layouts.md)**. The **[layout reference](doc
 
 ## Running it
 
-Requires Windows 10/11 and the [.NET 10 SDK](https://dotnet.microsoft.com/download).
+**Without building anything:** open the repository's [Actions tab](https://github.com/danilius/carvera-controller-csharp/actions/workflows/build.yml), pick the latest successful run on `main`, and download **CarveraController-win-x64** under *Artifacts* (you must be signed in to GitHub). Unzip it anywhere and run `CarveraController.exe`. It is self-contained, so no .NET install is needed. Tagged versions (`v*`) are also published as zips on the Releases page.
+
+**From source:** install the [.NET 10 SDK](https://dotnet.microsoft.com/download), clone the repository, then:
 
 ```powershell
 dotnet run --project src/Carvera.App                     # remembers the last layout
@@ -30,7 +32,7 @@ dotnet run --project src/Carvera.App -- --connect simulator
 ./build/publish.ps1                                      # self-contained build in publish/
 ```
 
-Connect with the bar at the top: **Wi-Fi** (machine IP address; **Find** listens for machines on the network), **USB** (COM port) or **Simulator**, which needs no hardware.
+Connect with the bar at the top: **Wi-Fi** (machine IP address; **Find** listens for machines on the network), **USB** (COM port) or **Simulator**, which needs no hardware. Your own layouts go in `%APPDATA%\CarveraControllerCS\layouts`.
 
 ## Project layout
 
