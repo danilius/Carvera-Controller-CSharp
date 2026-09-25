@@ -142,6 +142,9 @@ public sealed class MainWindow : Window, IAppHost
         foreach (var d in diagnostics.Where(d => d.Severity == DiagnosticSeverity.Warning && !d.Message.StartsWith(LayoutValidator.MissingSafetyPrefix, StringComparison.Ordinal)))
             _services.Console.Warning($"Layout: {d.Path}: {d.Message}");
 
+        if (!document.Root.Walk().Any(w => w.Node.Type.Equals("layoutSelector", StringComparison.OrdinalIgnoreCase) || w.Node.GetString("command") == "openLayout"))
+            _services.Console.Info("This layout has no layout switcher. Press Ctrl+L to choose another layout.");
+
         var missing = SafetyAnalyzer.FindMissing(document);
         if (missing.Count > 0)
         {
@@ -248,6 +251,13 @@ public sealed class MainWindow : Window, IAppHost
             e.Handled = true;
             return;
         }
+        // Built in so every layout can be left, even one without a layoutSelector.
+        if (e.Key == Key.L && e.KeyModifiers == KeyModifiers.Control)
+        {
+            e.Handled = true;
+            _ = ChooseLayoutAsync();
+            return;
+        }
         // Plain keys go to text boxes; shortcuts with Ctrl/Alt (or function keys) always apply.
         var typing = FocusManager?.GetFocusedElement() is TextBox or AutoCompleteBox;
         if (_session?.MatchShortcut(e, typing) is { } shortcut)
@@ -255,6 +265,13 @@ public sealed class MainWindow : Window, IAppHost
             e.Handled = true;
             _ = _services.Commands.ExecuteAsync(shortcut.Command, shortcut.Args);
         }
+    }
+
+    public async Task ChooseLayoutAsync()
+    {
+        var names = _services.Layouts.List().Select(l => l.Name).ToList();
+        var choice = await Dialogs.PickAsync(this, "Switch layout", names, _services.State.Get<string>(StatePaths.LayoutName));
+        if (choice is not null) LoadLayout(choice);
     }
 
     // ------------------------------------------------------------------ IAppHost

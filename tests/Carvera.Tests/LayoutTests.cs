@@ -105,6 +105,13 @@ public class LayoutTests
     }
 
     [Fact]
+    public void ReservedShortcutsAreReported()
+    {
+        var result = Load($$"""{ "root": { "type": "stack", "children": [ {{Safety}} ] }, "shortcuts": [ { "key": "Ctrl+L", "command": "stop" } ] }""");
+        Assert.Contains(result.Diagnostics, d => d.Severity == DiagnosticSeverity.Warning && d.Message.Contains("reserved"));
+    }
+
+    [Fact]
     public void ComponentsCannotHaveChildren()
     {
         var result = Load("""{ "root": { "type": "button", "command": "stop", "children": [ { "type": "text" } ] } }""");

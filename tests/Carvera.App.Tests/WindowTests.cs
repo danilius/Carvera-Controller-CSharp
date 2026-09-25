@@ -37,6 +37,8 @@ public class WindowTests
         Assert.False(window.HasBanner("errors"));
         Assert.DoesNotContain(window.GetVisualDescendants().OfType<TextBlock>(), t => t.Text?.StartsWith("⚠") == true);
         Assert.Equal(name == "canvas-demo", window.HasBanner("safety"));
+        // Every shipped layout offers a way to switch layouts.
+        Assert.Contains(window.Session!.Hosts, h => h.Node.Type == "layoutSelector");
         Assert.DoesNotContain(window.Services.Console.Entries, e => e.Kind == Core.ConsoleEntryKind.Error);
         window.Close();
     }
