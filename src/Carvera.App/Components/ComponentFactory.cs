@@ -28,8 +28,11 @@ public static class ComponentFactory
         "mdi" => ConsoleComponents.Mdi(node, host, ctx),
         "console" => ConsoleComponents.Console(node, host, ctx),
         "connection" => ConnectionComponent.Create(node, host, ctx),
-        "toolpath" => new ToolpathView(node, host, ctx),
+        "toolpath" => new Viewer.ToolpathView(node, host, ctx),
         "gcodelist" => GcodeList.Create(node, host, ctx),
+        "gcodescrubber" => ProgramComponents.Scrubber(node, host, ctx),
+        "operationlist" => ProgramComponents.Operations(node, host, ctx),
+        "toollist" => ProgramComponents.Tools(node, host, ctx),
         "layoutselector" => ButtonComponents.LayoutSelector(node, host, ctx),
         _ => throw new NotSupportedException($"Unknown element type '{node.Type}'."),
     };

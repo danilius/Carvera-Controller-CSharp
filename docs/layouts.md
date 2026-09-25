@@ -44,7 +44,7 @@ Every element has a `type`. **Containers** arrange children; **components** do s
 | `scroll` | Scrolls one `child`. |
 | `canvas` | Free placement with `x`/`y`. |
 
-Components include `axisReadout`, `machineStatus`, `button`, `toggle`, `choice`, `jogPad`, `jogStep`, `wcsSelector`, `override`, `slider`, `value`, `text`, `indicator`, `progress`, `image`, `console`, `mdi`, `connection`, `toolpath`, `gcodeList`, `layoutSelector` and `spacer`. The [reference](layout-reference.md) lists their properties.
+Components include `toolpath` (the 3D G-code view), `gcodeScrubber`, `operationList`, `toolList`, `gcodeList`, `axisReadout`, `machineStatus`, `button`, `toggle`, `choice`, `jogPad`, `jogStep`, `wcsSelector`, `override`, `slider`, `value`, `text`, `indicator`, `progress`, `image`, `console`, `mdi`, `connection`, `toolpath`, `gcodeList`, `layoutSelector` and `spacer`. The [reference](layout-reference.md) lists their properties.
 
 ## Sizing works like a web page
 
@@ -135,6 +135,31 @@ A visual block can set `background`, `foreground`, `borderColor`, `borderWidth`,
 ```
 
 Colours can refer to theme tokens with `@name` (`@accent`, `@surface`, `@danger`...). The full list of tokens is in `src/Carvera.App/Layout/Theme.cs`. Built-in icons: `arrow-up/down/left/right`, the diagonals (`arrow-up-left` and so on), `play`, `pause`, `stop`, `reset`, `home`, `unlock`, `light`, `air`, `spindle`, `plus`, `minus`, `folder`, `target`, `warning`, `plug`, `circle`, `check`, `close`, `tool`, `probe`, `zero`.
+
+## G-code: 3D view, scrubbing, operations and tools
+
+- **`toolpath`** is a 3D view of the loaded file with Blender's navigation:
+
+  | Action | How |
+  |---|---|
+  | Orbit | Middle-drag (or Alt+left-drag), or drag the axis gizmo |
+  | Pan | Shift+middle-drag; Ctrl+numpad 2/4/6/8 |
+  | Zoom | Wheel, Ctrl+middle-drag, numpad +/− |
+  | Front / right / top | Numpad 1 / 3 / 7 (with Ctrl: back / left / bottom), or click a gizmo ball |
+  | Perspective ↔ orthographic | Numpad 5, or the “Per/Ort” button under the gizmo |
+  | Orbit in 15° steps / flip | Numpad 2/4/6/8 / numpad 9 |
+  | Frame all / frame the tool | Home or the ⌂ button / numpad . |
+
+  Axis views switch to orthographic and return to perspective when you orbit away, as in Blender. Feed moves are coloured by operation (`colorBy`), rapids are dashed, and moves already run by the machine turn green. Keyboard navigation needs the view to have focus: click it first.
+- **`gcodeScrubber`** moves a scrub position through the path. Everything after it fades, and a hollow tool shows the position in the operation's colour. It has step buttons, jumps to operation ends, play/pause and the current line. `gcodeList` follows the scrub position; clicking a line scrubs to it.
+- **`operationList`** lists the operations with their colour and tool. Operations come from the Carvera Fusion post (its operation comments and `T# M6` changes), from MakeraStudio's `;@MKR|TOOLPATH` markers, or otherwise one per tool change. Click an operation to show it alone.
+  - **Change its tool from the drop-down.** When the operation has its own tool change, only the tool number changes (parameters like `S3` or `H-12` stay).
+  - When the operation shares the previous tool, a `T# M6` is inserted at its start, followed by the spindle and coolant commands that were active, because a tool change stops the spindle.
+  - If the next operation relied on the old tool, it gets an explicit change back.
+  - Edits apply to the copy in memory. Use **Save as** (`saveFile`) to write them.
+- **`toolList`** shows each tool's number, description, diameter and type, and the operations that use it. It highlights the tool in the spindle (green) and the tool at the scrub position (blue).
+
+Each operation's colour comes from the theme tokens `operation1`…`operation10`.
 
 ## Commands
 
