@@ -25,6 +25,8 @@ public sealed partial class LayoutValidator
         foreach (var shortcut in document.Shortcuts)
         {
             if (string.IsNullOrWhiteSpace(shortcut.Key)) bag.Error($"{shortcut.Path}.key", "Shortcut key is empty.");
+            else if (shortcut.Key.Replace(" ", "").ToLowerInvariant() is "f5" or "ctrl+l" or "control+l")
+                bag.Warning($"{shortcut.Path}.key", $"'{shortcut.Key}' is reserved (F5 reloads the layout, Ctrl+L switches layouts) and is ignored here.");
             ValidateCommand(shortcut.Command, shortcut.Args, $"{shortcut.Path}", bag);
         }
 

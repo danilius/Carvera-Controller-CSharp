@@ -10,6 +10,7 @@ Everything you see in Carvera Controller C# comes from a layout file. You decide
 | `%APPDATA%\CarveraControllerCS\layouts\` | Your own layouts. A file here replaces a shipped one with the same name. |
 
 - Choose a layout with the `layoutSelector` element, the `openLayout` command, or `CarveraController.exe --layout <name or path>`. The last one used is remembered.
+- **Ctrl+L** opens a layout picker in any layout, even one without a `layoutSelector`. F5 and Ctrl+L are reserved and cannot be used as layout shortcuts.
 - The app watches the current layout file. **Save the file and the window rebuilds immediately.** F5 also reloads it.
 - If a file has errors, a red banner lists them (with the JSON path of each problem) and the previous layout stays on screen. At startup, the built-in desktop layout is used instead, so the machine can always be operated.
 - Point your editor at `schema/layout.schema.json` (the shipped layouts do this with `"$schema"`) to get autocompletion and inline checks. Comments (`//`) and trailing commas are allowed.

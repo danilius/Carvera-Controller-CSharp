@@ -43,6 +43,7 @@ public sealed class LayoutSession : IDisposable
         foreach (var (gesture, command, args) in _shortcuts)
         {
             if (!gesture.Matches(e)) continue;
+            if (IsReserved(gesture)) continue;
             var hasModifier = (gesture.KeyModifiers & (KeyModifiers.Control | KeyModifiers.Alt | KeyModifiers.Meta)) != 0;
             var functionKey = gesture.Key is >= Key.F1 and <= Key.F24 or Key.Escape or Key.Pause;
             if (typing && !hasModifier && !functionKey) continue;
@@ -50,6 +51,10 @@ public sealed class LayoutSession : IDisposable
         }
         return null;
     }
+
+    /// <summary>F5 (reload) and Ctrl+L (switch layout) are handled by the window for every layout.</summary>
+    public static bool IsReserved(KeyGesture g) =>
+        g.Key == Key.F5 && g.KeyModifiers == KeyModifiers.None || g.Key == Key.L && g.KeyModifiers == KeyModifiers.Control;
 
     public ComponentHost? FindById(string id) => Hosts.FirstOrDefault(h => string.Equals(h.Node.Id, id, StringComparison.OrdinalIgnoreCase));
 

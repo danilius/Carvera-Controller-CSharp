@@ -9,6 +9,7 @@
     "children": [
       { "type": "machineStatus", "x": 20, "y": 20, "width": 160, "height": 40 },
       { "type": "connection", "x": 200, "y": 20, "width": 520, "height": 40, "kinds": ["simulator", "wifi"] },
+      { "type": "layoutSelector", "x": 740, "y": 24, "width": 180, "height": 32 },
       {
         "type": "panel", "title": "Position", "x": 20, "y": 80, "width": 300, "height": "auto", "spacing": 6,
         "children": [
