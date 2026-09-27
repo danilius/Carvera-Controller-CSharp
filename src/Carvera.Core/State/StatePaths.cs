@@ -58,6 +58,18 @@ public static class StatePaths
     public const string LocalFile = "file.local";
     public const string LocalFileName = "file.localName";
     public const string LocalFileLines = "file.lineCount";
+    public const string FileModified = "file.modified";
+    public const string FileOperations = "file.operationCount";
+
+    /// <summary>Scrub position: index of the last previewed path segment, or -1 to show everything.</summary>
+    public const string PreviewSegment = "preview.segment";
+    /// <summary>1-based G-code line of the scrub position, or -1.</summary>
+    public const string PreviewLine = "preview.line";
+    public const string PreviewActive = "preview.active";
+    public const string PreviewPlaying = "preview.playing";
+    /// <summary>Operation shown alone in the viewer (0-based), or -1 for all.</summary>
+    public const string PreviewOperation = "preview.operation";
+    public const string PreviewOperationName = "preview.operationName";
 
     public const string LayoutName = "app.layout";
 }

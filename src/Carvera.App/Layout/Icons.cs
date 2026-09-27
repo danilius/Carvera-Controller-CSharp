@@ -35,6 +35,11 @@ public static class Icons
         ["close"] = "M5 3.6 L12 10.6 L19 3.6 L20.4 5 L13.4 12 L20.4 19 L19 20.4 L12 13.4 L5 20.4 L3.6 19 L10.6 12 L3.6 5 Z",
         ["tool"] = "M14.7 3.3 A5 5 0 0 0 9.5 9.9 L3 16.4 L7.6 21 L14.1 14.5 A5 5 0 0 0 20.7 9.3 L17.6 12.4 L14.5 11.5 L13.6 8.4 Z",
         ["probe"] = "M10 2 H14 V12 L17 15 H13 V22 H11 V15 H7 L10 12 Z",
+        ["skip-back"] = "M5 4 H8 V20 H5 Z M20 4 V20 L9 12 Z",
+        ["skip-forward"] = "M16 4 H19 V20 H16 Z M4 4 V20 L15 12 Z",
+        ["step-back"] = "M17 5 V19 L7 12 Z",
+        ["step-forward"] = "M7 5 V19 L17 12 Z",
+        ["save"] = "F0 M4 3 H17 L21 7 V21 H4 Z M7 5 V9 H15 V5 Z M8 13 H17 V19 H8 Z",
         ["zero"] = "F0 M12 3 A7 9 0 1 0 12 21 A7 9 0 1 0 12 3 Z M12 6 A4 6 0 1 1 12 18 A4 6 0 1 1 12 6 Z",
     };
 

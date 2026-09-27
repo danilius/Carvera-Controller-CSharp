@@ -60,5 +60,9 @@ public sealed class Harness : IDisposable
         public Task LoadLayoutAsync(string name) => Task.CompletedTask;
         public Task ReloadLayoutAsync() => Task.CompletedTask;
         public Task ExitAsync() => Task.CompletedTask;
+        public Task SaveFileAsync(string? path) => Task.CompletedTask;
+        public Task SetOperationToolAsync(int operation, int tool) => Task.CompletedTask;
+        public Task StepPreviewAsync(int? delta) => Task.CompletedTask;
+        public Task SelectOperationAsync(int operation) => Task.CompletedTask;
     }
 }

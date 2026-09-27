@@ -394,27 +394,61 @@ States for `visuals`: `normal`, `hover`, `disabled`.
 
 ### `toolpath`
 
-2D (XY) preview of the loaded G-code file with the current tool position.
+3D view of the loaded G-code and the tool, navigated like Blender: middle-drag orbits, Shift+middle-drag pans, Ctrl+middle-drag or wheel zooms, numpad 1/3/7 (Ctrl: opposite) align front/right/top, numpad 5 toggles perspective, 2/4/6/8 orbit, 9 flips, . frames the tool, Home frames all. Alt+left-drag replaces the middle button; the corner gizmo can be clicked or dragged.
 
 States for `visuals`: `normal`, `hover`, `disabled`.
 
 | Property | Kind | Description |
 |---|---|---|
-| `showGrid` | bool | Draw a grid (default true). |
+| `view` | enum: `user`, `top`, `front`, `right` | Initial view. |
+| `projection` | enum: `perspective`, `orthographic` | Initial projection. |
+| `showGrid` | bool | Draw the XY grid at Z0 (default true). |
 | `gridSize` | number | Grid pitch in mm (default 10). |
+| `showGizmo` | bool | Show the navigation gizmo (default true). |
+| `toolLength` | number | Length of the drawn tool in mm (default 25). |
 | `pathColor` | color | Feed moves. |
 | `rapidColor` | color | Rapid moves. |
+| `doneColor` | color | Moves already executed by the running job. |
 | `positionColor` | color | Tool marker. |
+| `colorBy` | enum: `operation`, `single` | Colour feed moves per operation (default) or all alike with pathColor. |
 
 ### `gcodeList`
 
-The loaded G-code file with the current line highlighted.
+The loaded G-code file with a colour bar per operation. Follows the scrub position (or the running job); clicking a line scrubs to it.
 
 States for `visuals`: `normal`, `hover`, `disabled`.
 
 | Property | Kind | Description |
 |---|---|---|
 | `fontSize` | number | Text size. |
+
+### `gcodeScrubber`
+
+Scrubs through the loaded G-code: slider, step and operation-jump buttons, play/pause, and the line at the scrub position.
+
+States for `visuals`: `normal`, `hover`, `disabled`.
+
+| Property | Kind | Description |
+|---|---|---|
+| `speed` | number | Path segments per second while playing (default 150). |
+| `showLine` | bool | Show the operation and G-code line under the slider (default true). |
+| `buttonVisuals` | visuals | Visuals applied to the scrubber buttons. |
+
+### `operationList`
+
+The operations (toolpaths) in the loaded G-code with their colour, lines and tool. The tool can be changed per operation; click an operation to show it alone.
+
+States for `visuals`: `normal`, `hover`, `disabled`.
+
+| Property | Kind | Description |
+|---|---|---|
+| `tools` | numberlist | Tool numbers offered in addition to those in the file (default 1-6). |
+
+### `toolList`
+
+The tools the loaded G-code uses: number, description, diameter, type and the operations that use each. Highlights the tool in the spindle and the one at the scrub position.
+
+States for `visuals`: `normal`, `hover`, `disabled`.
 
 ### `layoutSelector`
 
@@ -432,7 +466,12 @@ States for `visuals`: `normal`, `hover`, `disabled`.
 | `exit` |  | Exit. Closes the application. Works without a machine connection. |
 | `openFile` | `path`: File to open | Open G-code file. Opens a local G-code file for preview; asks for a file when 'path' is omitted. Works without a machine connection. |
 | `openLayout` | `name` (required): Layout file name without .json | Switch layout. Loads another layout file by name. Works without a machine connection. |
+| `previewClear` |  | Show whole G-code. Leaves scrubbing and shows the whole program. Works without a machine connection. |
+| `previewStep` | `delta`: Segments to move (negative goes back) | Scrub G-code. Moves the preview scrub position by 'delta' path segments. Works without a machine connection. |
 | `reloadLayout` |  | Reload layout. Reloads the current layout file from disk. Works without a machine connection. |
+| `saveFile` | `path`: File to write | Save G-code as. Saves the (edited) local G-code file; asks for a name when 'path' is omitted. Works without a machine connection. |
+| `selectOperation` | `index`: Operation index (0-based) or -1 | Show one operation. Shows only one operation in the viewer (-1 shows all). Works without a machine connection. |
+| `setOperationTool` | `operation` (required): Operation index (0-based)<br>`tool` (required): New tool number | Change operation tool. Makes one operation of the local G-code use another tool. Only the copy in memory changes until you save it. Works without a machine connection. |
 
 ### Connection
 

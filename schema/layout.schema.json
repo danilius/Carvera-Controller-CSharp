@@ -108,9 +108,13 @@
               "openLayout",
               "pauseResume",
               "playFile",
+              "previewClear",
+              "previewStep",
               "reloadLayout",
               "reset",
               "resume",
+              "saveFile",
+              "selectOperation",
               "selectWcs",
               "sendGcode",
               "setAir",
@@ -119,6 +123,7 @@
               "setLaserMode",
               "setLaserTest",
               "setLight",
+              "setOperationTool",
               "setSpindle",
               "setTool",
               "setToolSensorPower",
@@ -311,6 +316,9 @@
             "connection",
             "toolpath",
             "gcodeList",
+            "gcodeScrubber",
+            "operationList",
+            "toolList",
             "layoutSelector"
           ],
           "description": "Element type."
@@ -732,9 +740,13 @@
                   "openLayout",
                   "pauseResume",
                   "playFile",
+                  "previewClear",
+                  "previewStep",
                   "reloadLayout",
                   "reset",
                   "resume",
+                  "saveFile",
+                  "selectOperation",
                   "selectWcs",
                   "sendGcode",
                   "setAir",
@@ -743,6 +755,7 @@
                   "setLaserMode",
                   "setLaserTest",
                   "setLight",
+                  "setOperationTool",
                   "setSpindle",
                   "setTool",
                   "setToolSensorPower",
@@ -965,9 +978,13 @@
                   "openLayout",
                   "pauseResume",
                   "playFile",
+                  "previewClear",
+                  "previewStep",
                   "reloadLayout",
                   "reset",
                   "resume",
+                  "saveFile",
+                  "selectOperation",
                   "selectWcs",
                   "sendGcode",
                   "setAir",
@@ -976,6 +993,7 @@
                   "setLaserMode",
                   "setLaserTest",
                   "setLight",
+                  "setOperationTool",
                   "setSpindle",
                   "setTool",
                   "setToolSensorPower",
@@ -1072,9 +1090,13 @@
                   "openLayout",
                   "pauseResume",
                   "playFile",
+                  "previewClear",
+                  "previewStep",
                   "reloadLayout",
                   "reset",
                   "resume",
+                  "saveFile",
+                  "selectOperation",
                   "selectWcs",
                   "sendGcode",
                   "setAir",
@@ -1083,6 +1105,7 @@
                   "setLaserMode",
                   "setLaserTest",
                   "setLight",
+                  "setOperationTool",
                   "setSpindle",
                   "setTool",
                   "setToolSensorPower",
@@ -1172,9 +1195,13 @@
                   "openLayout",
                   "pauseResume",
                   "playFile",
+                  "previewClear",
+                  "previewStep",
                   "reloadLayout",
                   "reset",
                   "resume",
+                  "saveFile",
+                  "selectOperation",
                   "selectWcs",
                   "sendGcode",
                   "setAir",
@@ -1183,6 +1210,7 @@
                   "setLaserMode",
                   "setLaserTest",
                   "setLight",
+                  "setOperationTool",
                   "setSpindle",
                   "setTool",
                   "setToolSensorPower",
@@ -1376,9 +1404,13 @@
                   "openLayout",
                   "pauseResume",
                   "playFile",
+                  "previewClear",
+                  "previewStep",
                   "reloadLayout",
                   "reset",
                   "resume",
+                  "saveFile",
+                  "selectOperation",
                   "selectWcs",
                   "sendGcode",
                   "setAir",
@@ -1387,6 +1419,7 @@
                   "setLaserMode",
                   "setLaserTest",
                   "setLight",
+                  "setOperationTool",
                   "setSpindle",
                   "setTool",
                   "setToolSensorPower",
@@ -1650,15 +1683,41 @@
             ]
           },
           "then": {
-            "description": "2D (XY) preview of the loaded G-code file with the current tool position.",
+            "description": "3D view of the loaded G-code and the tool, navigated like Blender: middle-drag orbits, Shift+middle-drag pans, Ctrl+middle-drag or wheel zooms, numpad 1/3/7 (Ctrl: opposite) align front/right/top, numpad 5 toggles perspective, 2/4/6/8 orbit, 9 flips, . frames the tool, Home frames all. Alt+left-drag replaces the middle button; the corner gizmo can be clicked or dragged.",
             "properties": {
+              "view": {
+                "type": "string",
+                "enum": [
+                  "user",
+                  "top",
+                  "front",
+                  "right"
+                ],
+                "description": "Initial view."
+              },
+              "projection": {
+                "type": "string",
+                "enum": [
+                  "perspective",
+                  "orthographic"
+                ],
+                "description": "Initial projection."
+              },
               "showGrid": {
                 "type": "boolean",
-                "description": "Draw a grid (default true)."
+                "description": "Draw the XY grid at Z0 (default true)."
               },
               "gridSize": {
                 "type": "number",
                 "description": "Grid pitch in mm (default 10)."
+              },
+              "showGizmo": {
+                "type": "boolean",
+                "description": "Show the navigation gizmo (default true)."
+              },
+              "toolLength": {
+                "type": "number",
+                "description": "Length of the drawn tool in mm (default 25)."
               },
               "pathColor": {
                 "$ref": "#/$defs/color",
@@ -1668,9 +1727,21 @@
                 "$ref": "#/$defs/color",
                 "description": "Rapid moves."
               },
+              "doneColor": {
+                "$ref": "#/$defs/color",
+                "description": "Moves already executed by the running job."
+              },
               "positionColor": {
                 "$ref": "#/$defs/color",
                 "description": "Tool marker."
+              },
+              "colorBy": {
+                "type": "string",
+                "enum": [
+                  "operation",
+                  "single"
+                ],
+                "description": "Colour feed moves per operation (default) or all alike with pathColor."
               }
             }
           }
@@ -1687,13 +1758,85 @@
             ]
           },
           "then": {
-            "description": "The loaded G-code file with the current line highlighted.",
+            "description": "The loaded G-code file with a colour bar per operation. Follows the scrub position (or the running job); clicking a line scrubs to it.",
             "properties": {
               "fontSize": {
                 "type": "number",
                 "description": "Text size."
               }
             }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "gcodeScrubber"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "description": "Scrubs through the loaded G-code: slider, step and operation-jump buttons, play/pause, and the line at the scrub position.",
+            "properties": {
+              "speed": {
+                "type": "number",
+                "description": "Path segments per second while playing (default 150)."
+              },
+              "showLine": {
+                "type": "boolean",
+                "description": "Show the operation and G-code line under the slider (default true)."
+              },
+              "buttonVisuals": {
+                "type": "object",
+                "additionalProperties": {
+                  "$ref": "#/$defs/visual"
+                },
+                "description": "Visuals applied to the scrubber buttons."
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "operationList"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "description": "The operations (toolpaths) in the loaded G-code with their colour, lines and tool. The tool can be changed per operation; click an operation to show it alone.",
+            "properties": {
+              "tools": {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                },
+                "description": "Tool numbers offered in addition to those in the file (default 1-6)."
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "toolList"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "description": "The tools the loaded G-code uses: number, description, diameter, type and the operations that use each. Highlights the tool in the spindle and the one at the scrub position.",
+            "properties": {}
           }
         },
         {

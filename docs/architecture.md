@@ -31,6 +31,7 @@ Carvera Controller C# is a Windows desktop controller for Makera Carvera CNC mac
 - **`ResponseParser`** is a direct port of `parseBracketAngle`, `parseBigParentheses` and `parseWCSParameters` from `Controller.py`, including the rotated-WCS offset formula.
 - **`MachineCommands`** builds the firmware's text commands (jog, G10 work offsets, M8xx switches, overrides, tool change...). **`StandardCommands`** exposes them as named commands with arguments, availability rules and descriptions. **`AppCommands`** adds application actions (open file, switch layout...) through the `IAppHost` interface.
 - **`Expression`/`TextTemplate`** are a small, safe expression language for `visible`, `enabled`, `bind`, `conditions` and live text.
+- **`GcodeProgram`, `GcodeStructure` and `GcodeEditor`** parse G-code into path segments and operations and tools (Fusion Carvera post, MakeraStudio markers, or per tool change), and edit an operation's tool safely.
 - **`SimulatedMachine`** answers status, diagnose, jogging, G0 moves, G10 work offsets, switches, hold, resume and reset, so layouts and tests work without hardware.
 
 ## Layout model (`src/Carvera.Layout`)
@@ -67,13 +68,12 @@ Done:
 - Go-to positions
 - Tool commands
 - MDI and console
-- Local G-code preview (2D toolpath and line list)
+- Local G-code: 3D view with Blender navigation, scrubbing, per-operation colours, operations and tools lists, changing an operation's tool (with spindle and coolant restored after an inserted tool change), save as
 - Running files already on the machine (`playFile`)
 
 Not yet ported from the Python controller:
 
 - File transfer (XMODEM with QuickLZ compression), remote file browser, upload-and-run
-- 3D G-code viewer
 - Probing screens, auto-levelling setup, WCS settings dialog, rotation
 - Machine configuration editor, firmware update
 - Pendants (WHB04 and CYD)

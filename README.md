@@ -11,6 +11,7 @@ A Windows controller for Makera Carvera CNC machines, written in C# with [Avalon
 - **Group and reuse.** Define a region (say, your DRO) once and place it in several spots, overriding its size or orientation each time.
 - **Give every state its own graphics.** Each component can change its image, text, colours, border and font per state (normal, hover, pressed, disabled, on/off, selected, alarm...) and on any machine condition you can express, e.g. `machine.state == 'Hold'`.
 - **Edit live.** Save the file and the window rebuilds. Mistakes are reported with their exact location, and the previous layout stays on screen.
+- **See the job in 3D.** The G-code view orbits, pans and zooms like Blender, colours each operation, and lets you scrub through the program. You can see the operations and tools in the file, and change the tool an operation uses.
 - **Stay safe.** If a layout hides or omits Feed Hold, Stop or Reset, the app shows a warning.
 
 | Touch panel layout | Canvas demo (with its deliberate safety warning) |
@@ -53,7 +54,7 @@ $env:UPDATE_GENERATED=1; dotnet test     # refresh the schema and reference afte
 
 ## Status
 
-This is an early port. Machine connection, status, jogging, work offsets, overrides, switches, run control, MDI, the console and a 2D G-code preview are in place. File transfer, the 3D viewer, probing, pendants and other features are still to come; see [docs/architecture.md](docs/architecture.md#status-of-the-port).
+This is an early port. Machine connection, status, jogging, work offsets, overrides, switches, run control, MDI, the console, and a 3D G-code view with scrubbing, operations and tools are in place. File transfer, probing, pendants and other features are still to come; see [docs/architecture.md](docs/architecture.md#status-of-the-port).
 
 **It has not been tested against a real machine yet.** Use it with care, and keep a hand near the machine's physical stop button.
 
