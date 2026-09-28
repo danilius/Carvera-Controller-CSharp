@@ -27,8 +27,7 @@
         "type": "stack", "orientation": "horizontal", "height": 48, "spacing": 12,
         "children": [
           { "type": "machineStatus", "width": 180, "class": "big" },
-          { "type": "connection", "width": 520, "kinds": ["wifi", "simulator"] },
-          { "type": "layoutSelector", "width": 180 }
+          { "type": "connection", "width": 520, "kinds": ["wifi", "simulator"] }
         ]
       },
       {

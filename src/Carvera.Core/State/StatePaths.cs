@@ -72,4 +72,7 @@ public static class StatePaths
     public const string PreviewOperationName = "preview.operationName";
 
     public const string LayoutName = "app.layout";
+
+    public const string PendantConnected = "pendant.connected";    // bool
+    public const string PendantName = "pendant.name";              // e.g. "CYD"
 }

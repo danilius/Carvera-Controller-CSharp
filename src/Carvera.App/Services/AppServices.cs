@@ -19,7 +19,10 @@ public sealed class AppServices : IDisposable
         Commands = new CommandRegistry(new CommandContext(controller));
         StandardCommands.Register(Commands);
         AppCommands.Register(Commands, host);
+        Pendants = new PendantService(this);
     }
+
+    public PendantService Pendants { get; }
 
     public CarveraController Controller { get; }
     public StateStore State => Controller.State;
@@ -92,5 +95,9 @@ public sealed class AppServices : IDisposable
         State.Set(StatePaths.PreviewOperationName, index >= 0 ? operations[index].Name : null);
     }
 
-    public void Dispose() => Binder.Dispose();
+    public void Dispose()
+    {
+        Pendants.Dispose();
+        Binder.Dispose();
+    }
 }

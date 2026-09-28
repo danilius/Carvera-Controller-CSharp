@@ -16,6 +16,7 @@ Carvera Controller C# ports https://github.com/danilius/Carvera_Controller (Pyth
 ## Working conventions
 
 - Develop on descriptive branches off `main` and integrate through pull requests.
+- Build with `build/publish.ps1`. It also updates the `Carvera Controller (latest build).lnk` shortcut in the repository root (git-ignored) so it always points at the latest build; make every build through this script.
 - The component catalog (`src/Carvera.Layout/ComponentCatalog.cs`) is the single source for element types and properties. After changing it, or the commands, regenerate `schema/layout.schema.json` and `docs/layout-reference.md` by running the tests with `UPDATE_GENERATED=1`.
 - Shipped layouts must validate without errors or warnings (except `canvas-demo`, which deliberately omits Reset). Tests enforce this.
 - Automate checks: headless Avalonia tests cover layout geometry, visual states and window behaviour, and render layout previews (`CARVERA_SCREENSHOT_DIR`) without using the screen or mouse.

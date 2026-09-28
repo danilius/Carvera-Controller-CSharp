@@ -124,4 +124,56 @@ public class ControllerTests
         Assert.Single(calls);
         Assert.Equal(["a", "b"], calls[0]);
     }
+
+    /// <summary>A stream the test can kill, to look like a machine that drops the connection.</summary>
+    private sealed class DroppableStream : IMachineStream
+    {
+        private readonly System.Threading.Channels.Channel<byte[]> _incoming = System.Threading.Channels.Channel.CreateUnbounded<byte[]>();
+        public string Description => "droppable";
+        public Task OpenAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+        public ValueTask WriteAsync(ReadOnlyMemory<byte> data, CancellationToken cancellationToken) => ValueTask.CompletedTask;
+        public async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken)
+        {
+            if (!await _incoming.Reader.WaitToReadAsync(cancellationToken)) return 0;
+            var chunk = await _incoming.Reader.ReadAsync(cancellationToken);
+            chunk.CopyTo(buffer);
+            return chunk.Length;
+        }
+        public void Drop() => _incoming.Writer.Complete();
+        public ValueTask DisposeAsync() { _incoming.Writer.TryComplete(); return ValueTask.CompletedTask; }
+    }
+
+    [Fact]
+    public async Task LosingTheConnectionRaisesConnectionLostOnceWithTheOptionsUsed()
+    {
+        var stream = new DroppableStream();
+        await using var controller = new CarveraController(streamFactory: _ => stream) { DiagnosePolling = false };
+        var lost = new List<ConnectionOptions?>();
+        controller.ConnectionLost += lost.Add;
+        var options = new ConnectionOptions(ConnectionKind.WiFi, "10.0.0.5");
+        await controller.ConnectAsync(options);
+        Assert.True(controller.IsConnected);
+
+        stream.Drop();
+        Assert.True(await WaitFor(() => lost.Count == 1));
+        Assert.Equal(options, lost[0]);
+        Assert.False(controller.IsConnected);
+        Assert.Equal("Disconnected", controller.State.Get<string>(StatePaths.ConnectionState));
+        Assert.Equal(0, controller.DisconnectCount); // a lost connection is not a request to disconnect
+        await Task.Delay(200);
+        Assert.Single(lost);
+    }
+
+    [Fact]
+    public async Task ADeliberateDisconnectDoesNotRaiseConnectionLost()
+    {
+        var (controller, _) = await ConnectSimulator();
+        await using var _c = controller;
+        var raised = false;
+        controller.ConnectionLost += _ => raised = true;
+        await controller.DisconnectAsync();
+        await Task.Delay(300);
+        Assert.False(raised);
+        Assert.Equal(1, controller.DisconnectCount);
+    }
 }
