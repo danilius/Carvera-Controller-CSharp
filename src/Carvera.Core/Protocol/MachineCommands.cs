@@ -14,6 +14,8 @@ public static class MachineCommands
     public const byte SoftReset = 0x18;
     public const byte StopContinuousJog = 0x19;
     public const string StatusQuery = "?";
+    /// <summary>Appended to the status query while a continuous jog runs ("?1").</summary>
+    public const string JogKeepAlive = "1";
     public const string DiagnoseQuery = "diagnose\n";
 
     private static string N(double value) => value.ToString("0.####", CultureInfo.InvariantCulture);

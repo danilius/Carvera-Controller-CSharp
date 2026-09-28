@@ -31,6 +31,11 @@ public sealed class CarveraController : IAsyncDisposable
     public ConsoleLog Console { get; }
     public ConnectionOptions? Options { get; private set; }
     public bool IsConnected => _stream is not null;
+
+    private int _disconnectCount;
+
+    /// <summary>How many times a live connection has been closed on request. Lets background reconnecting notice that the user chose to disconnect.</summary>
+    public int DisconnectCount => Volatile.Read(ref _disconnectCount);
     public TimeSpan StatusInterval { get; set; } = TimeSpan.FromMilliseconds(200);
     public TimeSpan DiagnoseInterval { get; set; } = TimeSpan.FromMilliseconds(1000);
     /// <summary>Poll the diagnose report so switch/sensor states (light, air, limit switches...) stay current.</summary>
@@ -70,16 +75,42 @@ public sealed class CarveraController : IAsyncDisposable
         }
         Console.Info($"Connected to {stream.Description}.");
         _readLoop = Task.Run(() => ReadLoopAsync(stream, _session.Token));
-        _pollLoop = Task.Run(() => PollLoopAsync(_session.Token));
+        _pollLoop = Task.Run(() => PollLoopAsync(stream, _session.Token));
         await SendLineAsync(MachineCommands.Version, log: false).ConfigureAwait(false);
         await SendLineAsync(MachineCommands.Model, log: false).ConfigureAwait(false);
         await SendLineAsync(MachineCommands.GetWcs, log: false).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Raised after the machine dropped the connection without <see cref="DisconnectAsync"/> being called, once the
+    /// controller has finished tearing the connection down. Carries the options it was using so a caller can reconnect.
+    /// Not raised for a deliberate disconnect. May be raised on any thread.
+    /// </summary>
+    public event Action<ConnectionOptions?>? ConnectionLost;
+
     public async Task DisconnectAsync()
     {
         var stream = Interlocked.Exchange(ref _stream, null);
         if (stream is null) return;
+        Interlocked.Increment(ref _disconnectCount);
+        await TearDownAsync(stream).ConfigureAwait(false);
+        Console.Info("Disconnected.");
+    }
+
+    /// <summary>Handles a dead connection found by the reader or the poller. Acts once, and only for the current stream.</summary>
+    private void OnConnectionLost(IMachineStream stream)
+    {
+        if (Interlocked.CompareExchange(ref _stream, null, stream) != stream) return; // a disconnect is already under way
+        var options = Options;
+        _ = Task.Run(async () =>
+        {
+            await TearDownAsync(stream).ConfigureAwait(false);
+            ConnectionLost?.Invoke(options);
+        });
+    }
+
+    private async Task TearDownAsync(IMachineStream stream)
+    {
         _session?.Cancel();
         await stream.DisposeAsync().ConfigureAwait(false);
         try
@@ -91,11 +122,11 @@ public sealed class CarveraController : IAsyncDisposable
         _session?.Dispose();
         _session = null;
         MarkDisconnected();
-        Console.Info("Disconnected.");
     }
 
     private void MarkDisconnected()
     {
+        ClearContinuousJog();
         using var _ = State.BeginBatch();
         State.Set(StatePaths.ConnectionState, "Disconnected");
         State.Set(StatePaths.Connected, false);
@@ -109,6 +140,35 @@ public sealed class CarveraController : IAsyncDisposable
         if (log) Console.Add(ConsoleEntryKind.Sent, text.TrimEnd('\n'));
         return WriteAsync(Encoding.UTF8.GetBytes(text));
     }
+
+    // ------------------------------------------------------------------ continuous jog
+
+    // 0 = idle, 1 = jogging, 2 = stopping (Ctrl+Y sent, waiting for the firmware's ^Y).
+    private int _continuousJog;
+
+    /// <summary>True from <c>$J -c</c> until the firmware confirms the stop with ^Y.</summary>
+    public bool ContinuousJogActive => Volatile.Read(ref _continuousJog) != 0;
+
+    /// <summary>
+    /// Starts a continuous jog ("X-1" style direction). Does nothing while one is running or stopping.
+    /// Status polls send the "?1" keepalive until <see cref="StopContinuousJogAsync"/>.
+    /// </summary>
+    public Task StartContinuousJogAsync(string direction, double? feed)
+    {
+        if (Interlocked.CompareExchange(ref _continuousJog, 1, 0) != 0) return Task.CompletedTask;
+        var line = feed is { } f && f > 0 ? $"$J -c {direction} F{f.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture)}" : $"$J -c {direction}";
+        return SendLineAsync(line);
+    }
+
+    /// <summary>Sends Ctrl+Y. A new continuous jog may only start after the firmware answers ^Y.</summary>
+    public Task StopContinuousJogAsync()
+    {
+        if (Interlocked.CompareExchange(ref _continuousJog, 2, 1) != 1) return Task.CompletedTask;
+        return SendRealtimeAsync(MachineCommands.StopContinuousJog, "Ctrl-Y (stop jog)");
+    }
+
+    /// <summary>Forgets a continuous jog without telling the machine (its ^Y arrived, or the link dropped).</summary>
+    public void ClearContinuousJog() => Volatile.Write(ref _continuousJog, 0);
 
     /// <summary>Sends a single-byte real-time command (feed hold, cycle start, soft reset...).</summary>
     public Task SendRealtimeAsync(byte command, string? description = null)
@@ -131,7 +191,7 @@ public sealed class CarveraController : IAsyncDisposable
         }
     }
 
-    private async Task PollLoopAsync(CancellationToken token)
+    private async Task PollLoopAsync(IMachineStream stream, CancellationToken token)
     {
         var lastDiagnose = DateTime.MinValue;
         while (!token.IsCancellationRequested)
@@ -139,7 +199,9 @@ public sealed class CarveraController : IAsyncDisposable
             try
             {
                 await Task.Delay(StatusInterval, token).ConfigureAwait(false);
-                await WriteAsync(Encoding.ASCII.GetBytes(MachineCommands.StatusQuery)).ConfigureAwait(false);
+                // While jogging continuously the status query doubles as the keepalive ("?1", one write).
+                var query = Volatile.Read(ref _continuousJog) == 1 ? MachineCommands.StatusQuery + MachineCommands.JogKeepAlive : MachineCommands.StatusQuery;
+                await WriteAsync(Encoding.ASCII.GetBytes(query)).ConfigureAwait(false);
                 if (DiagnosePolling && DateTime.UtcNow - lastDiagnose >= DiagnoseInterval)
                 {
                     lastDiagnose = DateTime.UtcNow;
@@ -149,7 +211,11 @@ public sealed class CarveraController : IAsyncDisposable
             catch (OperationCanceledException) { return; }
             catch (Exception ex) when (ex is IOException or InvalidOperationException or ObjectDisposedException)
             {
-                if (!token.IsCancellationRequested) Console.Error($"Status poll failed: {ex.Message}");
+                if (!token.IsCancellationRequested)
+                {
+                    Console.Error($"Status poll failed: {ex.Message}");
+                    OnConnectionLost(stream);
+                }
                 return;
             }
         }
@@ -186,7 +252,7 @@ public sealed class CarveraController : IAsyncDisposable
         if (!token.IsCancellationRequested)
         {
             Console.Warning("The machine closed the connection.");
-            _ = Task.Run(DisconnectAsync);
+            OnConnectionLost(stream);
         }
     }
 
@@ -209,6 +275,7 @@ public sealed class CarveraController : IAsyncDisposable
                 Console.Add(ConsoleEntryKind.Received, line);
                 return;
             case ResponseKind.JogStopped:
+                ClearContinuousJog();
                 return;
             case ResponseKind.Error:
                 Console.Add(ConsoleEntryKind.Error, line);

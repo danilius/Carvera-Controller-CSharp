@@ -10,6 +10,7 @@ using Carvera.App.Layout;
 using Carvera.App.Services;
 using Carvera.Core;
 using Carvera.Core.Commands;
+using Carvera.Core.Connection;
 using Carvera.Core.Gcode;
 using Carvera.Core.State;
 using Carvera.Layout;
@@ -43,28 +44,42 @@ public sealed class MainWindow : Window, IAppHost
         Height = settings.WindowHeight ?? 900;
         MinWidth = 640;
         MinHeight = 480;
-        WindowStartupLocation = WindowStartupLocation.CenterScreen;
+        RestoreWindowPlacement(settings);
 
-        var root = new DockPanel();
+        var layoutArea = new DockPanel();
+        // The settings button lives in its own slim column so it never sits over a layout control.
+        _settingsButton = CreateSettingsButton();
+        DockPanel.SetDock(_settingsStrip, Dock.Right);
+        _settingsStrip.Child = _settingsButton;
+        layoutArea.Children.Add(_settingsStrip);
         DockPanel.SetDock(_banners, Dock.Top);
-        root.Children.Add(_banners);
-        root.Children.Add(_layoutHost);
-        Content = root;
+        layoutArea.Children.Add(_banners);
+        layoutArea.Children.Add(_layoutHost);
+        _settingsHost.IsVisible = false;
+        Content = new Panel { Children = { layoutArea, _settingsHost } };
 
         var requested = ArgValue(args, "--layout") ?? settings.Layout;
         LoadLayout(requested, initial: true);
         if (ArgValue(args, "--connect") is { } connect)
             _ = _services.Commands.ExecuteAsync("connect", CommandArgs.Empty.With("kind", connect.Equals("simulator", StringComparison.OrdinalIgnoreCase) ? "simulator" : settings.ConnectionKind).With("address", connect));
 
+        _services.Pendants.Apply();
+        controller.ConnectionLost += lost =>
+        {
+            if (lost is not null) Dispatcher.UIThread.Post(() => StartReconnect(lost));
+        };
+
         KeyDown += OnKeyDown;
+        Opened += (_, _) => StartAutoConnect(ArgValue(args, "--connect") is not null);
         Closing += (_, _) =>
         {
-            settings.WindowWidth = Width;
-            settings.WindowHeight = Height;
+            CloseSettings();
+            SaveWindowPlacement(settings);
             settings.Save();
         };
         Closed += async (_, _) =>
         {
+            _autoConnect?.Cancel();
             _watcher?.Dispose();
             _session?.Dispose();
             await controller.DisposeAsync();
@@ -74,6 +89,184 @@ public sealed class MainWindow : Window, IAppHost
 
     public AppServices Services => _services;
     public LayoutSession? Session => _session;
+
+    // ------------------------------------------------------------------ window placement
+
+    private PixelPoint? _normalPosition;
+    private Size? _normalSize;
+    private WindowState _lastVisibleState = WindowState.Normal;
+
+    /// <summary>Puts the window back where it was, unless that spot is no longer on any screen.</summary>
+    private void RestoreWindowPlacement(Settings settings)
+    {
+        _normalSize = new Size(Width, Height);
+        WindowStartupLocation = WindowStartupLocation.CenterScreen;
+        if (settings.WindowX is { } x && settings.WindowY is { } y && IsOnAScreen(new PixelPoint(x, y)))
+        {
+            _normalPosition = new PixelPoint(x, y);
+            Position = _normalPosition.Value;
+            WindowStartupLocation = WindowStartupLocation.Manual;
+        }
+        if (settings.WindowMaximized)
+        {
+            WindowState = WindowState.Maximized;
+            _lastVisibleState = WindowState.Maximized;
+        }
+
+        // Only a window in its normal state tells us where it belongs; a maximised or minimised one does not.
+        PositionChanged += (_, e) =>
+        {
+            if (WindowState == WindowState.Normal) _normalPosition = e.Point;
+        };
+        Resized += (_, e) =>
+        {
+            if (WindowState == WindowState.Normal) _normalSize = e.ClientSize;
+        };
+        PropertyChanged += (_, e) =>
+        {
+            if (e.Property == WindowStateProperty && WindowState != WindowState.Minimized) _lastVisibleState = WindowState;
+        };
+    }
+
+    /// <summary>True when a good part of the title bar would be visible at the position, so the window can be grabbed.</summary>
+    private bool IsOnAScreen(PixelPoint position)
+    {
+        var grab = new PixelRect(position.X, position.Y, 200, 40);
+        return Screens?.All.Any(s => s.WorkingArea.Intersects(grab)) ?? false;
+    }
+
+    private void SaveWindowPlacement(Settings settings)
+    {
+        if (WindowState == WindowState.Normal)
+        {
+            _normalPosition = Position;
+            _normalSize = new Size(ClientSize.Width, ClientSize.Height);
+        }
+        settings.WindowMaximized = _lastVisibleState == WindowState.Maximized || WindowState == WindowState.Maximized;
+        if (_normalSize is { Width: > 0, Height: > 0 } size)
+        {
+            settings.WindowWidth = size.Width;
+            settings.WindowHeight = size.Height;
+        }
+        if (_normalPosition is { } p)
+        {
+            settings.WindowX = p.X;
+            settings.WindowY = p.Y;
+        }
+    }
+
+    // ------------------------------------------------------------------ auto-connect
+
+    private CancellationTokenSource? _autoConnect;
+
+    private AutoConnectPolicy CurrentAutoConnectPolicy() =>
+        new(_services.Settings.AutoConnectRetries, TimeSpan.FromSeconds(_services.Settings.AutoConnectIntervalSeconds));
+
+    /// <summary>Runs a connector in the background; a newer one replaces (cancels) any earlier one.</summary>
+    private void RunConnector(AutoConnector connector)
+    {
+        _autoConnect?.Cancel();
+        _autoConnect = new CancellationTokenSource();
+        var token = _autoConnect.Token;
+        _ = Task.Run(() => connector.RunAsync(token), token);
+    }
+
+    /// <summary>Connects to the last-used machine at start-up, retrying as configured in the settings.</summary>
+    private void StartAutoConnect(bool connectRequestedOnCommandLine)
+    {
+        var settings = _services.Settings;
+        if (!settings.AutoConnect || connectRequestedOnCommandLine) return;
+        var state = _services.State;
+        var disconnects = _services.Controller.DisconnectCount;
+        RunConnector(new AutoConnector(
+            CurrentAutoConnectPolicy,
+            // A simulator is never picked up automatically: it is for trying things out, not for the machine.
+            () => !string.Equals(state.Get<string>(StatePaths.ConnectionKind), "simulator", StringComparison.OrdinalIgnoreCase)
+                  && !string.IsNullOrWhiteSpace(state.Get<string>(StatePaths.ConnectionAddress)),
+            () => state.Get<string>(StatePaths.ConnectionState) != "Disconnected" || _services.Controller.DisconnectCount != disconnects,
+            _ => _services.Commands.ExecuteAsync("connect"),
+            _services.Console.Info));
+    }
+
+    /// <summary>The machine dropped the connection: get it back, trying as often as the auto-connect settings allow.</summary>
+    private void StartReconnect(ConnectionOptions lost)
+    {
+        if (!_services.Settings.AutoReconnect || lost.Kind == ConnectionKind.Simulator) return;
+        var controller = _services.Controller;
+        var state = _services.State;
+        var disconnects = controller.DisconnectCount;
+        _services.Console.Warning("Connection lost. Trying to reconnect.");
+        RunConnector(new AutoConnector(
+            CurrentAutoConnectPolicy,
+            () => true,
+            // Stop if someone connected (or is connecting), or the user chose Disconnect in the meantime.
+            () => state.Get<string>(StatePaths.ConnectionState) != "Disconnected" || controller.DisconnectCount != disconnects,
+            async token =>
+            {
+                try
+                {
+                    await controller.ConnectAsync(lost, token);
+                    return true;
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException) { return false; } // ConnectAsync has logged the reason
+            },
+            _services.Console.Info));
+    }
+
+    // ------------------------------------------------------------------ settings
+
+    private readonly Border _settingsHost = new();
+    private Button? _settingsButton;
+    private readonly Border _settingsStrip = new() { Width = 44, VerticalAlignment = VerticalAlignment.Stretch };
+
+    public bool IsSettingsOpen => _settingsHost.IsVisible;
+
+    /// <summary>The settings page; it covers the whole window until closed. Null while the layout is showing.</summary>
+    public SettingsView? SettingsPage => _settingsHost.Child as SettingsView;
+
+    /// <summary>
+    /// A small fixed button in the top-right corner, present in every layout, that flips to the settings page.
+    /// It is not part of any layout file so a layout cannot hide the way to the settings.
+    /// </summary>
+    private Button CreateSettingsButton()
+    {
+        var button = new Button
+        {
+            Content = new TextBlock { Text = "⚙", FontSize = 18, FontFamily = new FontFamily("Segoe UI Symbol"), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center },
+            Width = 34,
+            Height = 34,
+            Padding = new Thickness(0),
+            HorizontalAlignment = HorizontalAlignment.Right,
+            VerticalAlignment = VerticalAlignment.Top,
+            Margin = new Thickness(5, 6, 5, 0),
+            Background = Brush.Parse("#E6FFFFFF"),
+            BorderBrush = Brush.Parse("#B9C3D0"),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(17),
+            Name = "SettingsButton",
+        };
+        ToolTip.SetTip(button, "Settings (Ctrl+,)");
+        Avalonia.Automation.AutomationProperties.SetName(button, "Settings");
+        button.Click += (_, _) => OpenSettings();
+        return button;
+    }
+
+    public void OpenSettings()
+    {
+        if (IsSettingsOpen) return;
+        _settingsHost.Child = new SettingsView(_services, CloseSettings, name => LoadLayout(name));
+        _settingsHost.IsVisible = true;
+        _settingsStrip.IsVisible = false;
+    }
+
+    public void CloseSettings()
+    {
+        if (!IsSettingsOpen) return;
+        _settingsHost.IsVisible = false;
+        _settingsStrip.IsVisible = true;
+        _settingsHost.Child = null;
+        _services.Settings.Save();
+    }
 
     private static string? ArgValue(string[] args, string name)
     {
@@ -130,6 +323,7 @@ public sealed class MainWindow : Window, IAppHost
         _session = new LayoutSession(document, _services);
         _layoutHost.Child = _session.Root;
         _layoutHost.Background = _session.Context.Theme.TokenBrush("background");
+        _settingsStrip.Background = _session.Context.Theme.TokenBrush("background");
         _layoutHost.SetValue(TextElement.FontFamilyProperty, _session.Context.Theme.FontFamily);
         _layoutHost.SetValue(TextElement.FontSizeProperty, _session.Context.Theme.FontSize);
         _layoutHost.SetValue(TextElement.ForegroundProperty, _session.Context.Theme.TokenBrush("text"));
@@ -141,9 +335,6 @@ public sealed class MainWindow : Window, IAppHost
         // Missing safety controls get their own banner and message below.
         foreach (var d in diagnostics.Where(d => d.Severity == DiagnosticSeverity.Warning && !d.Message.StartsWith(LayoutValidator.MissingSafetyPrefix, StringComparison.Ordinal)))
             _services.Console.Warning($"Layout: {d.Path}: {d.Message}");
-
-        if (!document.Root.Walk().Any(w => w.Node.Type.Equals("layoutSelector", StringComparison.OrdinalIgnoreCase) || w.Node.GetString("command") == "openLayout"))
-            _services.Console.Info("This layout has no layout switcher. Press Ctrl+L to choose another layout.");
 
         var missing = SafetyAnalyzer.FindMissing(document);
         if (missing.Count > 0)
@@ -245,6 +436,22 @@ public sealed class MainWindow : Window, IAppHost
     private void OnKeyDown(object? sender, KeyEventArgs e)
     {
         if (e.Handled) return;
+        // Built in like Ctrl+L: flips between the layout and the settings page.
+        if (e.Key == Key.OemComma && e.KeyModifiers == KeyModifiers.Control)
+        {
+            e.Handled = true;
+            if (IsSettingsOpen) CloseSettings(); else OpenSettings();
+            return;
+        }
+        if (IsSettingsOpen)
+        {
+            if (e.Key == Key.Escape)
+            {
+                e.Handled = true;
+                CloseSettings();
+            }
+            return; // layout shortcuts must not act while the settings page covers the layout
+        }
         if (e.Key == Key.F5 && e.KeyModifiers == KeyModifiers.None)
         {
             _ = ReloadLayoutAsync();

@@ -184,8 +184,7 @@
             "enabled": "file.lineCount > 0", "tooltip": "Save the G-code, including tool changes made in the operations list",
             "visuals": { "normal": { "image": "builtin:save" } },
             "conditions": [ { "when": "file.modified", "text": "Save changes", "background": "@warningSoft", "borderColor": "@warning" } ]
-          },
-          { "type": "layoutSelector", "width": 160 }
+          }
         ]
       },
       {

@@ -74,7 +74,7 @@ public sealed partial class SimulatedMachine : IMachineStream
                 lock (_gate) { _pendingMoves.Clear(); _held = false; _spindle = false; _state = "Idle"; }
                 Reply("ok");
                 return;
-            case MachineCommands.StopContinuousJog: return;
+            case MachineCommands.StopContinuousJog: Reply("^Y"); return; // the firmware acknowledges a jog stop
             case (byte)'\r': return;
             case (byte)'\n':
                 var line = _input.ToString().Trim();
