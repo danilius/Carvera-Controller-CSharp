@@ -180,6 +180,12 @@
           { "type": "spacer" },
           { "type": "button", "class": "toolbar-button", "text": "Open file", "command": "openFile", "width": "auto", "visuals": { "normal": { "image": "builtin:folder" } } },
           {
+            "type": "button", "class": "toolbar-button", "text": "Upload", "command": "uploadFile", "width": "auto",
+            "tooltip": "Send the open G-code file to the machine. Press again while it is sending to cancel.",
+            "visuals": { "normal": { "image": "builtin:upload" } },
+            "conditions": [ { "when": "transfer.active", "text": "Cancel: {transfer.phase} {transfer.percent:0}%", "background": "@warningSoft", "borderColor": "@warning" } ]
+          },
+          {
             "type": "button", "class": "toolbar-button", "text": "Save as", "command": "saveFile", "width": "auto",
             "enabled": "file.lineCount > 0", "tooltip": "Save the G-code, including tool changes made in the operations list",
             "visuals": { "normal": { "image": "builtin:save" } },

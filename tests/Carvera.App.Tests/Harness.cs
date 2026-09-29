@@ -64,5 +64,6 @@ public sealed class Harness : IDisposable
         public Task SetOperationToolAsync(int operation, int tool) => Task.CompletedTask;
         public Task StepPreviewAsync(int? delta) => Task.CompletedTask;
         public Task SelectOperationAsync(int operation) => Task.CompletedTask;
+        public Task UploadFileAsync(string? path, string? remoteDirectory) => Task.CompletedTask;
     }
 }

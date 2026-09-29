@@ -177,12 +177,56 @@ public sealed class CarveraController : IAsyncDisposable
         return WriteAsync(new[] { command });
     }
 
-    private async Task WriteAsync(byte[] data)
+    // ------------------------------------------------------------------ exclusive access (file transfers)
+
+    private volatile Transfer.ExclusiveLink? _exclusive;
+
+    /// <summary>True while <see cref="RunExclusiveAsync{T}"/> holds the stream.</summary>
+    public bool IsExclusive => _exclusive is not null;
+
+    /// <summary>
+    /// Runs <paramref name="action"/> with raw access to the machine's byte stream. Polling stops and incoming bytes
+    /// go to the <see cref="Transfer.IByteLink"/> until it returns. Only one transfer can run at a time.
+    /// </summary>
+    public async Task<T> RunExclusiveAsync<T>(Func<Transfer.IByteLink, Task<T>> action)
+    {
+        var stream = _stream ?? throw new InvalidOperationException("Not connected to a machine.");
+        var link = new Transfer.ExclusiveLink((data, token) => stream.WriteAsync(data, token));
+        await _writeLock.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            if (Interlocked.CompareExchange(ref _exclusive, link, null) is not null)
+                throw new InvalidOperationException("A file transfer is already running.");
+        }
+        finally
+        {
+            _writeLock.Release();
+        }
+        try
+        {
+            // Let a status reply that was already on its way arrive before the transfer starts.
+            await link.DrainAsync(TimeSpan.FromMilliseconds(300), CancellationToken.None).ConfigureAwait(false);
+            return await action(link).ConfigureAwait(false);
+        }
+        finally
+        {
+            _exclusive = null;
+            link.Complete();
+        }
+    }
+
+    /// <param name="poll">Status polls are silently skipped during a file transfer; anything else is refused, since it would corrupt the transfer.</param>
+    private async Task WriteAsync(byte[] data, bool poll = false)
     {
         var stream = _stream ?? throw new InvalidOperationException("Not connected to a machine.");
         await _writeLock.WaitAsync().ConfigureAwait(false);
         try
         {
+            if (_exclusive is not null)
+            {
+                if (poll) return;
+                throw new InvalidOperationException("A file transfer is running; wait for it to finish or cancel it first.");
+            }
             await stream.WriteAsync(data, CancellationToken.None).ConfigureAwait(false);
         }
         finally
@@ -199,13 +243,14 @@ public sealed class CarveraController : IAsyncDisposable
             try
             {
                 await Task.Delay(StatusInterval, token).ConfigureAwait(false);
+                if (_exclusive is not null) continue; // no polling while a file transfer runs
                 // While jogging continuously the status query doubles as the keepalive ("?1", one write).
                 var query = Volatile.Read(ref _continuousJog) == 1 ? MachineCommands.StatusQuery + MachineCommands.JogKeepAlive : MachineCommands.StatusQuery;
-                await WriteAsync(Encoding.ASCII.GetBytes(query)).ConfigureAwait(false);
+                await WriteAsync(Encoding.ASCII.GetBytes(query), poll: true).ConfigureAwait(false);
                 if (DiagnosePolling && DateTime.UtcNow - lastDiagnose >= DiagnoseInterval)
                 {
                     lastDiagnose = DateTime.UtcNow;
-                    await WriteAsync(Encoding.ASCII.GetBytes(MachineCommands.DiagnoseQuery)).ConfigureAwait(false);
+                    await WriteAsync(Encoding.ASCII.GetBytes(MachineCommands.DiagnoseQuery), poll: true).ConfigureAwait(false);
                 }
             }
             catch (OperationCanceledException) { return; }
@@ -231,6 +276,13 @@ public sealed class CarveraController : IAsyncDisposable
             {
                 var count = await stream.ReadAsync(buffer, token).ConfigureAwait(false);
                 if (count == 0) break;
+                if (_exclusive is { } exclusive)
+                {
+                    // A file transfer owns the stream: hand the raw bytes over instead of parsing lines.
+                    exclusive.Push(buffer.AsSpan(0, count));
+                    line.Clear();
+                    continue;
+                }
                 for (var i = 0; i < count; i++)
                 {
                     var b = buffer[i];
@@ -252,6 +304,7 @@ public sealed class CarveraController : IAsyncDisposable
         if (!token.IsCancellationRequested)
         {
             Console.Warning("The machine closed the connection.");
+            _exclusive?.Complete(); // a running file transfer finds out and fails
             OnConnectionLost(stream);
         }
     }

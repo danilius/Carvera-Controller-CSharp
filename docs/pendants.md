@@ -30,3 +30,42 @@ Differences from the Python controller:
 - Not validated against real hardware yet.
 
 Macros 1-10 are edited in the settings page. Only macros with both a name and G-code are offered to the pendant.
+
+## Gamepad
+
+A port of the Python controller's gamepad support. Input comes from SDL's joystick API (the `SDL2.dll` that ships in
+`runtimes\win-x64\native`), so Xbox, PlayStation, Switch Pro and generic USB pads all work. Every attached device is opened
+and the first one you use (a button, the D-pad, or a stick pushed well off centre) becomes the active pad. Enable it in
+*Settings > Gamepad*.
+
+- **Sticks and D-pad jog.** In *step* mode each push makes one step of the current jog step size; in *continuous* mode the
+  machine moves while the stick is held, at a fraction of the fastest speed (2% for 0.01 mm steps, 10% for 0.1, 30% for 1, 100%
+  for 10 and above), with Z capped at 800 mm/min. Continuous jogging needs community firmware.
+- **Buttons and triggers run actions.** Triggers fire once per press.
+- **Jogging obeys the same rules as every pendant** (the *Pendants* group in settings). Stop, reset and pause are never gated.
+- Letting go of a stick, unplugging the pad or turning the gamepad off stops a continuous jog.
+
+Options in the settings page: a preset (Xbox 360 / Xbox One, PlayStation, Nintendo Switch Pro), the stick dead zone, the
+fastest continuous jog and per-axis inversion. The mapping itself is `gamepad-bindings.json` in
+`%APPDATA%\CarveraControllerCS`. It is the same JSON as the Python controller's `gamepad_bindings`:
+
+```json
+{
+  "axes":     { "0": "jog_x", "1": "jog_y", "4": "jog_z", "3": "jog_a" },
+  "triggers": { "2:+": "feed_minus", "5:+": "feed_plus" },
+  "buttons":  { "4": "step_size_down", "5": "step_size_up", "6": "mode_toggle", "7": "spindle_on_off" },
+  "hat":      { "left": "jog_x", "right": "jog_x", "up": "jog_z", "down": "jog_z" }
+}
+```
+
+Axis, button and hat numbers are SDL joystick indices. Edit the file, save it, and press *Reload the bindings* in the settings;
+mistakes (unknown actions with a "did you mean", bad keys) are reported in the console.
+
+Actions: `jog_x`, `jog_y`, `jog_z`, `jog_a` (axes and D-pad only), `feed_plus`, `feed_minus`, `spindle_plus`, `spindle_minus`,
+`start_pause`, `stop`, `reset`, `mode_toggle`, `m_home`, `w_home`, `safe_z`, `spindle_on_off`, `step_size_up`, `step_size_down`,
+`macro_1` to `macro_10`, and `probe_z` (not available yet: probing is not ported).
+
+## State published by pendants
+
+`pendant.<device>.connected` and `pendant.<device>.name` for each device (`cyd`, `gamepad`), the combined `pendant.connected`
+and `pendant.name`, and `jog.mode` (`step` or `continuous`).

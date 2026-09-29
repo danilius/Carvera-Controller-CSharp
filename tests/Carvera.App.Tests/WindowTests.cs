@@ -124,8 +124,9 @@ public class WindowTests
             Assert.True(page.IsEffectivelyVisible);
             // Each group has a header, and the list on the left names the same groups.
             var texts = page.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text).ToList();
-            foreach (var group in new[] { "General", "Connection", "CYD pendant", "Macros" }) Assert.Contains(group, texts);
-            Assert.Contains(page.GetVisualDescendants().OfType<ListBox>(), l => l.Items.Cast<object>().SequenceEqual(["General", "Connection", "CYD pendant", "Macros"]));
+            string[] groups = ["General", "Connection", "3D view", "File upload", "Pendants", "CYD pendant", "Gamepad", "Macros"];
+            foreach (var group in groups) Assert.Contains(group, texts);
+            Assert.Contains(page.GetVisualDescendants().OfType<ListBox>(), l => l.Items.Cast<object>().SequenceEqual(groups));
 
             var back = page.GetVisualDescendants().OfType<Button>().Single(b => b.Content as string == "‹ Back to main view");
             back.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
@@ -271,6 +272,44 @@ public class WindowTests
         Assert.True(window.Services.Controller.IsConnected);
         window.Close();
         machine.Stop();
+    }
+
+    [AvaloniaFact]
+    public async Task UploadButtonSendsTheOpenFileToTheMachine()
+    {
+        var settings = Settings.Load();
+        settings.AutoConnect = false;
+        settings.Save();
+        var window = new MainWindow(["--layout", "desktop", "--connect", "simulator"]) { Width = 1400, Height = 900 };
+        window.Show();
+        await Settle(window, 800);
+        var button = window.Session!.Hosts.Single(h => h.Node.Type == "button" && h.Node.GetString("command") == "uploadFile");
+        Assert.Equal("Upload", window.Session.Hosts.Single(h => h.Node.GetString("command") == "uploadFile").Node.GetString("text"));
+        Assert.True(button.IsEffectivelyEnabled);
+
+        var sample = Path.Combine(AppContext.BaseDirectory, "samples", "demo.nc");
+        Assert.True(File.Exists(sample));
+        Assert.True(await window.Services.Commands.ExecuteAsync("uploadFile", Carvera.Core.Commands.CommandArgs.Empty.With("path", sample)));
+        await Settle(window, 200);
+        Assert.Equal("Uploaded demo.nc.", window.Services.State.Get<string>(StatePaths.TransferMessage));
+        Assert.False(window.Services.State.Get<bool>(StatePaths.TransferActive));
+        Assert.DoesNotContain(window.Services.Console.Entries, e => e.Kind == Core.ConsoleEntryKind.Error);
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public async Task UploadIsUnavailableWithoutAMachine()
+    {
+        var settings = Settings.Load();
+        settings.AutoConnect = false;
+        settings.Save();
+        var window = new MainWindow(["--layout", "desktop"]) { Width = 1400, Height = 900 };
+        window.Show();
+        await Settle(window);
+        Assert.False(window.Services.Commands.CanExecute("uploadFile", Carvera.Core.Commands.CommandArgs.Empty));
+        var button = window.Session!.Hosts.Single(h => h.Node.Type == "button" && h.Node.GetString("command") == "uploadFile");
+        Assert.False(button.IsEffectivelyEnabled);
+        window.Close();
     }
 
     [AvaloniaFact]

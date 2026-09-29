@@ -4,6 +4,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Threading;
 using Carvera.App.Services;
+using Carvera.Core.Pendant;
 using Carvera.Core.State;
 
 namespace Carvera.App.Shell;
@@ -29,7 +30,7 @@ public sealed class SettingsView : UserControl
     private readonly StackPanel _content = new() { Spacing = 8, Margin = new Thickness(24, 16, 24, 32), MaxWidth = 820, HorizontalAlignment = HorizontalAlignment.Left };
     private readonly ListBox _groups = new() { Background = Brushes.Transparent, BorderThickness = new Thickness(0), Margin = new Thickness(8, 12) };
     private readonly Dictionary<string, Control> _headers = new();
-    private TextBlock? _pendantStatus;
+    private TextBlock? _pendantStatus, _gamepadStatus;
 
     public SettingsView(AppServices services, Action close, Action<string> loadLayout)
     {
@@ -54,7 +55,11 @@ public sealed class SettingsView : UserControl
 
         BuildGeneral();
         BuildConnection();
+        Build3dView();
+        BuildUpload();
+        BuildSharedPendantRules();
         BuildPendant();
+        BuildGamepad();
         BuildMacros();
 
         foreach (var name in _headers.Keys) _groups.Items.Add(name);
@@ -189,6 +194,37 @@ public sealed class SettingsView : UserControl
             Number(_settings.AutoConnectIntervalSeconds, 1, 3600, v => _settings.AutoConnectIntervalSeconds = v));
     }
 
+    private void Build3dView()
+    {
+        Section("3D view", out var rows);
+        var renderer = new ComboBox();
+        foreach (var option in new[] { "Auto", "GPU", "CPU" }) renderer.Items.Add(option);
+        renderer.SelectedItem = _settings.ViewerRenderer;
+        renderer.SelectionChanged += (_, _) =>
+        {
+            if (renderer.SelectedItem is string choice) _settings.ViewerRenderer = choice;
+            _settings.Save();
+        };
+        Row(rows, "Draw the toolpath with", $"Auto uses the GPU for programs of {Components.Viewer.ToolpathView.AutoGpuSegments:N0} path segments or more, where the CPU renderer gets slow, and the CPU for smaller ones. " +
+            "Choose CPU if the GPU view looks wrong; the app also falls back to the CPU by itself when the GPU cannot be used. The change applies when the view next redraws.", renderer);
+    }
+
+    private void BuildUpload()
+    {
+        Section("File upload", out var rows);
+        Row(rows, "Folder on the machine", "Where the Upload button puts files, e.g. /sd/gcodes.",
+            Field(_settings.UploadDirectory, v => _settings.UploadDirectory = v.Trim(), "/sd/gcodes"));
+        var compression = new ComboBox();
+        foreach (var option in new[] { "Auto", "On", "Off" }) compression.Items.Add(option);
+        compression.SelectedItem = _settings.UploadCompression;
+        compression.SelectionChanged += (_, _) =>
+        {
+            if (compression.SelectedItem is string choice) _settings.UploadCompression = choice;
+            _settings.Save();
+        };
+        Row(rows, "Send as .lz files", "Auto uses .lz when the machine says it accepts it, as the Python controller does. The machine unpacks the file after the upload. Turn it off if uploads fail.", compression);
+    }
+
     private void BuildPendant()
     {
         Section("CYD pendant", out var rows);
@@ -205,12 +241,76 @@ public sealed class SettingsView : UserControl
         Row(rows, "Port", "TCP port of the pendant firmware (default 9876).", port);
         _pendantStatus = new TextBlock { VerticalAlignment = VerticalAlignment.Center, TextWrapping = TextWrapping.Wrap };
         Row(rows, "Status", null, _pendantStatus);
-        Row(rows, "Jogging from the pendant", "When off, the pendant cannot jog the machine.",
+    }
+
+    private void BuildSharedPendantRules()
+    {
+        Section("Pendants", out var rows);
+        Row(rows, "Jogging from a pendant", "When off, no pendant can jog the machine. Stop, reset and pause always work.",
             Toggle(_settings.PendantJoggingDefault, v => _settings.PendantJoggingDefault = v));
-        Row(rows, "Allow jogging while the machine is running", "Off by default: the pendant may only jog when the machine is idle or paused.",
+        Row(rows, "Allow jogging while the machine is running", "Off by default: a pendant may only jog when the machine is idle or paused.",
             Toggle(_settings.AllowJoggingWhileRunning, v => _settings.AllowJoggingWhileRunning = v));
         Row(rows, "Allow jogging while the spindle is on", null,
             Toggle(_settings.AllowJoggingWhileSpindleOn, v => _settings.AllowJoggingWhileSpindleOn = v));
+    }
+
+    private void BuildGamepad()
+    {
+        Section("Gamepad", out var rows);
+        Row(rows, "Use a gamepad", "Any pad SDL knows works: Xbox, PlayStation, Switch Pro and generic USB pads. Press a button on the pad you want to use.",
+            Toggle(_settings.GamepadEnabled, v => _settings.GamepadEnabled = v));
+        _gamepadStatus = new TextBlock { VerticalAlignment = VerticalAlignment.Center, TextWrapping = TextWrapping.Wrap };
+        Row(rows, "Status", null, _gamepadStatus);
+
+        var preset = new ComboBox();
+        foreach (var name in GamepadBindingsStore.PresetNames) preset.Items.Add(name);
+        preset.SelectedItem = GamepadBindingsStore.PresetNames.Contains(_settings.GamepadPreset) ? _settings.GamepadPreset : GamepadBindingsStore.CustomPreset;
+        preset.SelectionChanged += (_, _) =>
+        {
+            if (preset.SelectedItem is not string choice) return;
+            _settings.GamepadPreset = choice;
+            if (choice != GamepadBindingsStore.CustomPreset) GamepadBindingsStore.WritePreset(choice);
+            _settings.Save();
+            _services.Pendants.ReloadGamepadBindings();
+        };
+        Row(rows, "Button layout", "Choosing a preset writes it to the bindings file, replacing any changes made there.", preset);
+
+        var edit = new Button { Content = "Open the bindings file", HorizontalAlignment = HorizontalAlignment.Left };
+        edit.Click += (_, _) =>
+        {
+            if (!File.Exists(GamepadBindingsStore.FilePath)) _services.Pendants.ReloadGamepadBindings(); // creates it from the preset
+            try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(GamepadBindingsStore.FilePath) { UseShellExecute = true }); }
+            catch (Exception ex) { _services.Console.Error($"Could not open {GamepadBindingsStore.FilePath}: {ex.Message}"); }
+        };
+        var reload = new Button { Content = "Reload the bindings" };
+        reload.Click += (_, _) =>
+        {
+            _settings.GamepadPreset = GamepadBindingsStore.CustomPreset;
+            preset.SelectedItem = GamepadBindingsStore.CustomPreset;
+            _services.Pendants.ReloadGamepadBindings();
+        };
+        Row(rows, "Bindings file", GamepadBindingsStore.FilePath + ". Edit it, save, then reload. Actions are listed in docs/pendants.md.",
+            new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { edit, reload } });
+
+        Row(rows, "Stick dead zone", "Fraction of the stick's travel that is ignored (0.01 to 0.99).",
+            Decimal(_settings.GamepadDeadzone, 0.01, 0.99, 0.05, v => _settings.GamepadDeadzone = v));
+        Row(rows, "Fastest continuous jog (mm/min)", "Reached with the largest step size; Z is capped at 800.",
+            Decimal(_settings.GamepadMaxJogSpeed, 100, 10000, 100, v => _settings.GamepadMaxJogSpeed = v));
+        Row(rows, "Invert X", null, Toggle(_settings.GamepadInvertX, v => _settings.GamepadInvertX = v));
+        Row(rows, "Invert Y", null, Toggle(_settings.GamepadInvertY, v => _settings.GamepadInvertY = v));
+        Row(rows, "Invert Z", null, Toggle(_settings.GamepadInvertZ, v => _settings.GamepadInvertZ = v));
+        Row(rows, "Invert A", null, Toggle(_settings.GamepadInvertA, v => _settings.GamepadInvertA = v));
+    }
+
+    private NumericUpDown Decimal(double value, double min, double max, double step, Action<double> set)
+    {
+        var box = new NumericUpDown { Minimum = (decimal)min, Maximum = (decimal)max, Increment = (decimal)step, FormatString = step < 1 ? "0.00" : "0", Value = (decimal)Math.Clamp(value, min, max) };
+        box.ValueChanged += (_, _) =>
+        {
+            if (box.Value is { } v) set((double)v);
+            _settings.Save();
+        };
+        return box;
     }
 
     private void BuildMacros()
@@ -236,26 +336,34 @@ public sealed class SettingsView : UserControl
 
     private void OnStateChanged(IReadOnlyCollection<string> paths)
     {
-        if (paths.Contains(StatePaths.PendantConnected)) Dispatcher.UIThread.Post(RefreshPendantStatus);
+        if (paths.Contains(StatePaths.PendantConnected) || paths.Contains(PendantStatus.ConnectedPath("cyd")) || paths.Contains(PendantStatus.ConnectedPath("gamepad")))
+            Dispatcher.UIThread.Post(RefreshPendantStatus);
     }
 
     private void RefreshPendantStatus()
     {
-        if (_pendantStatus is null) return;
-        if (!_settings.CydEnabled)
+        Show(_pendantStatus, _settings.CydEnabled, _services.State.Get(PendantStatus.ConnectedPath("cyd"), false), "Waiting for the pendant", null);
+        Show(_gamepadStatus, _settings.GamepadEnabled, _services.State.Get(PendantStatus.ConnectedPath("gamepad"), false), "Waiting: press a button on the gamepad",
+            _services.State.Get<string>(PendantStatus.NamePath("gamepad")));
+    }
+
+    private static void Show(TextBlock? label, bool enabled, bool connected, string waiting, string? name)
+    {
+        if (label is null) return;
+        if (!enabled)
         {
-            _pendantStatus.Text = "Not in use";
-            _pendantStatus.Foreground = Muted;
+            label.Text = "Not in use";
+            label.Foreground = Muted;
         }
-        else if (_services.State.Get(StatePaths.PendantConnected, false))
+        else if (connected)
         {
-            _pendantStatus.Text = "● Connected";
-            _pendantStatus.Foreground = Brush.Parse("#16A34A");
+            label.Text = "● Connected" + (name is null ? "" : $": {name}");
+            label.Foreground = Brush.Parse("#16A34A");
         }
         else
         {
-            _pendantStatus.Text = "○ Waiting for the pendant";
-            _pendantStatus.Foreground = Brush.Parse("#D97706");
+            label.Text = "○ " + waiting;
+            label.Foreground = Brush.Parse("#D97706");
         }
     }
 }
