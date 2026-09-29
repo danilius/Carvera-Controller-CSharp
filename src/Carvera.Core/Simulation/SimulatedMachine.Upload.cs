@@ -8,6 +8,69 @@ namespace Carvera.Core.Simulation;
 public sealed partial class SimulatedMachine
 {
     private readonly Dictionary<string, byte[]> _uploads = new(StringComparer.Ordinal);
+
+    // The simulated SD card: every file (uploaded or built in) and every folder, by full path.
+    private readonly Dictionary<string, (byte[] Data, DateTime Modified)> _files = new(StringComparer.Ordinal)
+    {
+        ["/sd/gcodes/demo part.nc"] = (System.Text.Encoding.ASCII.GetBytes("G21 G90\nG1 X10 Y10 F800\n"), new DateTime(2026, 9, 1, 10, 30, 0)),
+        ["/sd/gcodes/notes.txt"] = (System.Text.Encoding.ASCII.GetBytes("hello"), new DateTime(2026, 8, 15, 9, 0, 0)),
+    };
+    private readonly HashSet<string> _folders = new(StringComparer.Ordinal) { "/sd", "/sd/gcodes", "/sd/gcodes/old jobs" };
+
+    /// <summary>Everything on the simulated SD card, by path (files that came with the simulator and uploaded ones).</summary>
+    public IReadOnlyDictionary<string, byte[]> Files { get { lock (_gate) return _files.ToDictionary(f => f.Key, f => f.Value.Data); } }
+    public IReadOnlyCollection<string> Folders { get { lock (_gate) return [.. _folders]; } }
+
+    private static string ParentOf(string path) => path.LastIndexOf('/') is var cut and > 0 ? path[..cut] : "/";
+
+    /// <summary>Handles ls, rm, mkdir and mv the way the machine answers them. Returns false for other commands.</summary>
+    private bool TryFileCommand(string line)
+    {
+        var words = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (words.Length == 0) return false;
+        var arguments = words.Skip(1).Where(w => !w.StartsWith('-')).Select(w => w.Replace('\x01', ' ')).ToList();
+        void Done() => Output([0x04]);
+        void Fail() => Output([0x16]);
+        switch (words[0].ToLowerInvariant())
+        {
+            case "ls":
+                if (arguments.Count != 1 || !_folders.Contains(arguments[0].TrimEnd('/'))) { Fail(); return true; }
+                var dir = arguments[0].TrimEnd('/');
+                foreach (var folder in _folders.Where(f => f != dir && ParentOf(f) == dir).Order())
+                    Reply($"{folder[(dir.Length + 1)..].Replace(' ', '\x01')}/ 0 {new DateTime(2026, 9, 1).ToString("yyyyMMddHHmmss")}");
+                foreach (var (path, file) in _files.Where(f => ParentOf(f.Key) == dir).OrderBy(f => f.Key))
+                    Reply($"{path[(dir.Length + 1)..].Replace(' ', '\x01')} {file.Data.Length} {file.Modified:yyyyMMddHHmmss}");
+                Reply(".hidden 5 20260101000000");
+                Done();
+                return true;
+            case "rm":
+                if (arguments.Count != 1) { Fail(); return true; }
+                if (_files.Remove(arguments[0])) { _uploads.Remove(arguments[0]); Done(); }
+                else if (_folders.Contains(arguments[0]) && !_files.Keys.Any(f => ParentOf(f) == arguments[0]) && !_folders.Any(f => f != arguments[0] && ParentOf(f) == arguments[0]) && arguments[0] != "/sd")
+                { _folders.Remove(arguments[0]); Done(); }
+                else Fail();
+                return true;
+            case "mkdir":
+                if (arguments.Count != 1 || _folders.Contains(arguments[0]) || _files.ContainsKey(arguments[0]) || !_folders.Contains(ParentOf(arguments[0]))) Fail();
+                else { _folders.Add(arguments[0]); Done(); }
+                return true;
+            case "mv":
+                if (arguments.Count != 2 || _files.ContainsKey(arguments[1]) || _folders.Contains(arguments[1]) || !_folders.Contains(ParentOf(arguments[1]))) { Fail(); return true; }
+                if (_files.Remove(arguments[0], out var moved)) { _files[arguments[1]] = moved; if (_uploads.Remove(arguments[0], out var data)) _uploads[arguments[1]] = data; Done(); }
+                else if (_folders.Contains(arguments[0]) && arguments[0] != "/sd")
+                {
+                    var from = arguments[0];
+                    var to = arguments[1];
+                    foreach (var folder in _folders.Where(f => f == from || f.StartsWith(from + "/")).ToList()) { _folders.Remove(folder); _folders.Add(to + folder[from.Length..]); }
+                    foreach (var file in _files.Keys.Where(f => f.StartsWith(from + "/")).ToList()) { _files[to + file[from.Length..]] = _files[file]; _files.Remove(file); }
+                    Done();
+                }
+                else Fail();
+                return true;
+            default:
+                return false;
+        }
+    }
     private UploadReceiver? _upload;
     private const byte XmodemCancel = XmodemSender.Can;
 
@@ -69,6 +132,9 @@ public sealed partial class SimulatedMachine
             return;
         }
         _uploads[path] = data;
+        _files[path] = (data, DateTime.Now);
+        // An upload creates the folders on its way, like the machine's SD card tools do not; the browser needs them to exist.
+        for (var folder = ParentOf(path); folder.Length > 1 && _folders.Add(folder); folder = ParentOf(folder)) { }
         Reply("ok");
     }
 
@@ -81,6 +147,7 @@ public sealed partial class SimulatedMachine
         private Stage _stage = Stage.Header;
         private int _bodySize;
         private byte _sequence, _expected;
+        private bool _md5Seen;
         private readonly List<byte> _body = [];
         private int _crcBytes;
         private ushort _crc;
@@ -123,7 +190,12 @@ public sealed partial class SimulatedMachine
                     if (_sequence != _expected) return Nak;
                     var length = _bodySize == 2 + XmodemSender.PacketSize ? (body[0] << 8) | body[1] : body[0];
                     var payload = body.AsSpan(_bodySize == 2 + XmodemSender.PacketSize ? 2 : 1, length);
-                    if (_expected == 0) Md5 = Encoding.ASCII.GetString(payload);
+                    // The first packet carries the MD5. Sequence numbers wrap after 255, so packet 0 is not always the first.
+                    if (!_md5Seen)
+                    {
+                        _md5Seen = true;
+                        Md5 = Encoding.ASCII.GetString(payload);
+                    }
                     else _data.Write(payload);
                     _expected++;
                     return Ack;

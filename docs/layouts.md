@@ -6,7 +6,7 @@ Everything you see in Carvera Controller C# comes from a layout file. You decide
 
 | Folder | Purpose |
 |---|---|
-| `layouts\` next to `CarveraController.exe` | Layouts that ship with the program (`desktop`, `touch`, `canvas-demo`). |
+| `layouts\` next to `CarveraController.exe` | The layout that ships with the program (`desktop`). |
 | `%APPDATA%\CarveraControllerCS\layouts\` | Your own layouts. A file here replaces a shipped one with the same name. |
 
 - Choose a layout with the `layoutSelector` element, the `openLayout` command, or `CarveraController.exe --layout <name or path>`. The last one used is remembered.
@@ -182,7 +182,7 @@ Every layout should show **Feed Hold** (`feedHold` or `pauseResume`), **Stop** (
 
 If one is missing, or hidden by `"visible": false`, a zero size or zero opacity (on the element or any container around it), the app shows a **yellow warning banner** and writes the warning to the console. The layout still loads. Controls with conditional visibility (an expression) count as present. Keyboard shortcuts do not count, because you cannot see them.
 
-The `canvas-demo` layout leaves out Reset on purpose so you can see the warning.
+To see the warning, save a copy of `desktop.json` in your layouts folder and delete its Reset button.
 
 ## Try layouts without a machine
 

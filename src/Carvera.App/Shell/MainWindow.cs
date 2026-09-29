@@ -630,14 +630,28 @@ public sealed class MainWindow : Window, IAppHost
         return Task.CompletedTask;
     }
 
-    private CancellationTokenSource? _upload;
+    public Task<bool> ConfirmAsync(string message) =>
+        Dispatcher.UIThread.InvokeAsync(() => Dialogs.ConfirmAsync(this, message));
+
+    public Task<string?> PromptAsync(string title, string label, string initial) =>
+        Dispatcher.UIThread.InvokeAsync(() => Dialogs.PromptAsync(this, title, label, initial));
+
+    public async Task<string?> PickSavePathAsync(string suggestedName)
+    {
+        var file = await Dispatcher.UIThread.InvokeAsync(() => StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+        {
+            Title = "Save the file from the machine",
+            SuggestedFileName = suggestedName,
+        }));
+        return file?.TryGetLocalPath();
+    }
 
     public async Task UploadFileAsync(string? path, string? remoteDirectory)
     {
-        // Pressing Upload again while one is running cancels it.
-        if (_upload is { } running)
+        // Pressing Upload again while a transfer is running cancels it.
+        if (_services.Transfers.Active)
         {
-            running.Cancel();
+            _services.Transfers.Cancel();
             return;
         }
         var state = _services.State;
@@ -671,15 +685,15 @@ public sealed class MainWindow : Window, IAppHost
             "Off" => false,
             _ => UploadOptions.MachineAcceptsLz(state.Get<string>(StatePaths.MachineFileType)),
         };
-        using var cts = new CancellationTokenSource();
-        _upload = cts;
+        var cts = _services.Transfers.TryBegin();
+        if (cts is null) return; // another transfer started while the file was being chosen
         try
         {
             await FileUploader.UploadAsync(_services.Controller, path, new UploadOptions(remoteDirectory ?? settings.UploadDirectory, compress), cts.Token);
         }
         finally
         {
-            _upload = null;
+            _services.Transfers.End(cts);
         }
     }
 

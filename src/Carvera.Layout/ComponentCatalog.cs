@@ -212,6 +212,7 @@ public static class ComponentCatalog
             [S("tools", PropKind.NumberList, "Tool numbers offered in addition to those in the file (default 1-6).")], BaseStates),
         new("toolList", "The tools the loaded G-code uses: number, description, diameter, type and the operations that use each. Highlights the tool in the spindle and the one at the scrub position.", ChildRule.None,
             [], BaseStates),
+        new("remoteFiles", "The files and folders on the machine's SD card: the folder path, then one row per entry with its size and date. Click selects, double-click opens a folder. Drive it with the remote* commands (remoteUp, remoteRefresh, remoteMkdir, remoteRename, remoteDelete, remotePlay, remoteUpload); the state is under remote.*.", ChildRule.None, [], BaseStates),
         new("layoutSelector", "Switches between the available layout files.", ChildRule.None, [], BaseStates),
     ];
 

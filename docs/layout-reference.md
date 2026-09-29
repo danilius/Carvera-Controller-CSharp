@@ -450,6 +450,12 @@ The tools the loaded G-code uses: number, description, diameter, type and the op
 
 States for `visuals`: `normal`, `hover`, `disabled`.
 
+### `remoteFiles`
+
+The files and folders on the machine's SD card: the folder path, then one row per entry with its size and date. Click selects, double-click opens a folder. Drive it with the remote* commands (remoteUp, remoteRefresh, remoteMkdir, remoteRename, remoteDelete, remotePlay, remoteUpload); the state is under remote.*.
+
+States for `visuals`: `normal`, `hover`, `disabled`.
+
 ### `layoutSelector`
 
 Switches between the available layout files.
@@ -492,6 +498,22 @@ States for `visuals`: `normal`, `hover`, `disabled`.
 | Command | Arguments | Description |
 |---|---|---|
 | `uploadFile` | `path`: Local file; defaults to the open file, or asks<br>`remoteDirectory`: Folder on the machine; defaults to the upload folder in the settings | Upload file. Sends the open G-code file (or 'path') to the machine over the connection; press it again during an upload to cancel. Only available while the machine is idle. |
+
+### Machine files
+
+| Command | Arguments | Description |
+|---|---|---|
+| `remoteDelete` | `confirmed`: true to skip the question | Delete. Deletes the selected file, or an empty folder, from the machine after asking to confirm. |
+| `remoteDownload` | `path`: Where to save it; asks when omitted | Download. Saves the selected file from the machine to your computer (asks where). Press it again during a transfer to cancel. Only available while the machine is idle. |
+| `remoteMkdir` | `name`: Folder name | New folder. Creates a folder in the folder shown; asks for the name unless 'name' is given. |
+| `remoteOpen` | `path`: Folder on the machine, e.g. /sd/gcodes | Open folder. Shows a folder: 'path', or the selected folder. |
+| `remotePlay` |  | Run selected file. Runs the selected file on the machine (like playFile). Only available while the machine is idle. |
+| `remoteRefresh` |  | Refresh file list. Lists the folder shown in the file browser again. |
+| `remoteRename` | `name`: New name | Rename. Renames the selected file or folder; asks for the name unless 'name' is given. |
+| `remoteSelect` | `path`: Path of the entry | Select file. Selects an entry in the file browser (or clears the selection when 'path' is omitted). |
+| `remoteUp` |  | Up one folder. Shows the folder above the current one (never above /sd). |
+| `remoteUpload` |  | Upload here. Uploads the open G-code file (or asks for one) into the folder the file browser shows. Press it again during an upload to cancel. |
+| `remoteView` |  | View in 3D. Downloads the selected file to a temporary folder and opens it in the G-code view, without keeping a copy. Only available while the machine is idle. |
 
 ### Motion
 

@@ -37,7 +37,7 @@ public class WindowTests
         Assert.Equal(name, window.Services.State.Get<string>(StatePaths.LayoutName));
         Assert.False(window.HasBanner("errors"));
         Assert.DoesNotContain(window.GetVisualDescendants().OfType<TextBlock>(), t => t.Text?.StartsWith("⚠") == true);
-        Assert.Equal(name == "canvas-demo", window.HasBanner("safety"));
+        Assert.False(window.HasBanner("safety"));
         // Layout switching lives in the settings page and Ctrl+L, not in the layouts.
         Assert.DoesNotContain(window.Session!.Hosts, h => h.Node.Type == "layoutSelector");
         Assert.DoesNotContain(window.Services.Console.Entries, e => e.Kind == Core.ConsoleEntryKind.Error);
@@ -57,11 +57,31 @@ public class WindowTests
         Assert.NotNull(window.Session); // the built-in layout keeps the machine operable
         Assert.Contains(window.Services.Console.Entries, e => e.Text.Contains("Did you mean 'stack'"));
 
-        // A failed reload keeps the current layout.
-        Assert.True(window.LoadLayout("touch"));
+        // A failed reload keeps the current layout. A second good layout is a copy of the shipped one, in the user's folder.
+        File.Copy(Path.Combine(AppContext.BaseDirectory, "layouts", "desktop.json"), Path.Combine(folder, "second.json"), overwrite: true);
+        Assert.True(window.LoadLayout("second"));
         Assert.False(window.HasBanner("errors"));
         Assert.False(window.LoadLayout("broken"));
-        Assert.Equal("touch", window.Services.State.Get<string>(StatePaths.LayoutName));
+        Assert.Equal("second", window.Services.State.Get<string>(StatePaths.LayoutName));
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public async Task ALayoutWithoutResetShowsTheSafetyWarning()
+    {
+        var folder = Path.Combine(Settings.Directory, "layouts");
+        Directory.CreateDirectory(folder);
+        File.WriteAllText(Path.Combine(folder, "no-reset.json"), """
+            { "root": { "type": "stack", "children": [
+              { "type": "button", "text": "Hold", "command": "feedHold" }, { "type": "button", "text": "Stop", "command": "stop" }
+            ] } }
+            """);
+        var window = new MainWindow(["--layout", "no-reset"]);
+        window.Show();
+        await Settle(window);
+        Assert.False(window.HasBanner("errors"));
+        Assert.True(window.HasBanner("safety"));
+        Assert.Contains(window.Services.Console.Entries, e => e.Text.StartsWith("Safety: this layout has no visible Reset"));
         window.Close();
     }
 
@@ -71,7 +91,7 @@ public class WindowTests
         // Off-screen renders of each layout, connected to the simulator (useful for documentation and review).
         var output = Environment.GetEnvironmentVariable("CARVERA_SCREENSHOT_DIR") is { Length: > 0 } dir ? dir : Path.Combine(AppContext.BaseDirectory, "screenshots");
         Directory.CreateDirectory(output);
-        foreach (var (name, width, height) in new[] { ("desktop", 1400, 900), ("touch", 1280, 800), ("canvas-demo", 1280, 720) })
+        foreach (var (name, width, height) in new[] { ("desktop", 1400, 900) })
         {
             var window = new MainWindow(["--layout", name, "--connect", "simulator"]) { Width = width, Height = height };
             window.Show();
@@ -94,7 +114,7 @@ public class WindowTests
     [AvaloniaFact]
     public async Task SettingsButtonFlipsBetweenLayoutAndSettingsInEveryLayout()
     {
-        foreach (var name in new[] { "desktop", "touch", "canvas-demo" })
+        foreach (var name in new[] { "desktop" })
         {
             var window = new MainWindow(["--layout", name]) { Width = 1280, Height = 800 };
             window.Show();

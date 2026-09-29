@@ -15,6 +15,7 @@ namespace Carvera.Core.Simulation;
 public sealed partial class SimulatedMachine : IMachineStream
 {
     private readonly Channel<byte[]> _output = Channel.CreateUnbounded<byte[]>();
+    private byte[] _leftover = [];
     private readonly StringBuilder _input = new();
     private readonly object _gate = new();
     private readonly double[] _machine = [-200, -150, -5, 0];
@@ -48,10 +49,16 @@ public sealed partial class SimulatedMachine : IMachineStream
 
     public async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken)
     {
-        if (!await _output.Reader.WaitToReadAsync(cancellationToken).ConfigureAwait(false)) return 0;
-        var chunk = await _output.Reader.ReadAsync(cancellationToken).ConfigureAwait(false);
-        chunk.AsSpan(0, Math.Min(chunk.Length, buffer.Length)).CopyTo(buffer.Span);
-        return Math.Min(chunk.Length, buffer.Length);
+        // A reply can be larger than the caller's buffer (an XMODEM packet is 8 KiB): hand it out in pieces, losing nothing.
+        if (_leftover.Length == 0)
+        {
+            if (!await _output.Reader.WaitToReadAsync(cancellationToken).ConfigureAwait(false)) return 0;
+            _leftover = await _output.Reader.ReadAsync(cancellationToken).ConfigureAwait(false);
+        }
+        var count = Math.Min(_leftover.Length, buffer.Length);
+        _leftover.AsSpan(0, count).CopyTo(buffer.Span);
+        _leftover = _leftover[count..];
+        return count;
     }
 
     public ValueTask DisposeAsync()
@@ -68,6 +75,11 @@ public sealed partial class SimulatedMachine : IMachineStream
         if (_upload is not null)
         {
             lock (_gate) UploadByte(b); // an upload is in progress: bytes are XMODEM packets, not commands
+            return;
+        }
+        if (_download is not null)
+        {
+            lock (_gate) DownloadByte(b); // a download is in progress: bytes are the receiver's ACK/NAK
             return;
         }
         switch (b)
@@ -102,6 +114,8 @@ public sealed partial class SimulatedMachine : IMachineStream
             if (upper == "DIAGNOSE") { Reply(DiagnoseReport()); return; }
             if (upper == "VERSION") { Reply("version = 2.1.0c-sim"); Reply($"ftype = {FileType}"); return; }
             if (upper.StartsWith("UPLOAD ", StringComparison.Ordinal)) { StartUpload(line[7..]); return; }
+            if (upper.StartsWith("DOWNLOAD ", StringComparison.Ordinal)) { StartDownload(line[9..]); return; }
+            if (TryFileCommand(line)) return;
             if (upper == "MODEL") { Reply("model = CA1"); return; }
             if (upper == "GET WCS") { Reply($"[current WCS: {ResponseParser.WcsNames[_activeWcs]}]"); return; }
             if (upper is "ABORT") { _pendingMoves.Clear(); _held = false; _state = "Idle"; Reply("ok"); return; }

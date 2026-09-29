@@ -161,10 +161,8 @@ public class LayoutTests
         var result = LayoutLoader.LoadFile(Path.Combine(AppContext.BaseDirectory, "layouts", file));
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
         var warnings = result.Diagnostics.Where(d => d.Severity == DiagnosticSeverity.Warning).ToList();
-        if (file == "canvas-demo.json")
-            Assert.Equal(["Reset"], SafetyAnalyzer.FindMissing(result.Document!));
-        else
-            Assert.True(warnings.Count == 0, string.Join("\n", warnings));
+        Assert.True(warnings.Count == 0, string.Join("\n", warnings));
+        Assert.Empty(SafetyAnalyzer.FindMissing(result.Document!));
     }
 
     [Fact]
