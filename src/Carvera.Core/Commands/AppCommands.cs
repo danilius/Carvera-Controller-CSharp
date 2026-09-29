@@ -20,6 +20,12 @@ public interface IAppHost
     /// file, asking for one when none is open; without a directory it uses the upload folder from the settings.
     /// </summary>
     Task UploadFileAsync(string? path, string? remoteDirectory);
+    /// <summary>Asks a yes/no question. Returns false when the user says no.</summary>
+    Task<bool> ConfirmAsync(string message);
+    /// <summary>Asks for a line of text. Returns null when the user cancels.</summary>
+    Task<string?> PromptAsync(string title, string label, string initial);
+    /// <summary>Asks where to save a file. Returns the chosen path, or null when the user cancels.</summary>
+    Task<string?> PickSavePathAsync(string suggestedName);
 }
 
 public static class AppCommands
@@ -66,9 +72,11 @@ public static class AppCommands
     /// <summary>A registry holding every command, for validating layouts without a running app.</summary>
     public static CommandRegistry CreateCatalog()
     {
-        var registry = new CommandRegistry(new CommandContext(new CarveraController()));
+        var controller = new CarveraController();
+        var registry = new CommandRegistry(new CommandContext(controller));
         StandardCommands.Register(registry);
         Register(registry, new NullHost());
+        RemoteCommands.Register(registry, new Transfer.RemoteBrowser(controller), new Transfer.TransferGate(), new NullHost());
         return registry;
     }
 
@@ -84,5 +92,8 @@ public static class AppCommands
         public Task StepPreviewAsync(int? delta) => Task.CompletedTask;
         public Task SelectOperationAsync(int operation) => Task.CompletedTask;
         public Task UploadFileAsync(string? path, string? remoteDirectory) => Task.CompletedTask;
+        public Task<bool> ConfirmAsync(string message) => Task.FromResult(true);
+        public Task<string?> PromptAsync(string title, string label, string initial) => Task.FromResult<string?>(initial);
+        public Task<string?> PickSavePathAsync(string suggestedName) => Task.FromResult<string?>(null);
     }
 }

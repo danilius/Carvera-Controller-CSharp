@@ -103,5 +103,11 @@ public static class MachineCommands
     public static string Play(string remotePath) => $"play {EscapeArgument(remotePath)}\n";
     /// <summary>Starts an XMODEM upload to <paramref name="remotePath"/> (the machine then waits for the file).</summary>
     public static string Upload(string remotePath) => $"upload {EscapeArgument(remotePath)}\n";
+    /// <summary>Delete a file or (empty) folder on the machine. The reply ends with EOT, or CAN on failure.</summary>
+    public static string Remove(string remotePath) => $"rm {EscapeArgument(remotePath)} -e\n";
+    public static string MakeDirectory(string remotePath) => $"mkdir {EscapeArgument(remotePath)} -e\n";
+    public static string Move(string from, string to) => $"mv {EscapeArgument(from)} {EscapeArgument(to)} -e\n";
+    /// <summary>Starts an XMODEM download of <paramref name="remotePath"/> (the machine then waits for the receiver).</summary>
+    public static string Download(string remotePath) => $"download {EscapeArgument(remotePath)}\n";
     public static string ListDirectory(string remotePath) => $"ls -e -s {EscapeArgument(remotePath)}\n";
 }

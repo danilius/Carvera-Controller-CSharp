@@ -177,6 +177,46 @@ public sealed class CarveraController : IAsyncDisposable
         return WriteAsync(new[] { command });
     }
 
+    // ------------------------------------------------------------------ captured commands (listings and file operations)
+
+    private sealed class CaptureSession
+    {
+        public readonly List<string> Lines = [];
+        public readonly TaskCompletionSource<bool> Done = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    }
+
+    private volatile CaptureSession? _capture;
+    private readonly SemaphoreSlim _captureGate = new(1, 1);
+
+    /// <summary>The reply to a captured command: its lines, whether it ended normally (EOT), or timed out.</summary>
+    public sealed record CaptureResult(IReadOnlyList<string> Lines, bool Succeeded, bool TimedOut);
+
+    /// <summary>
+    /// Sends a command that ends its reply with EOT (or CAN on failure), such as <c>ls -e</c>, and collects the reply lines.
+    /// Status polling pauses while it waits; one such command runs at a time.
+    /// </summary>
+    public async Task<CaptureResult> CaptureAsync(string command, TimeSpan timeout, CancellationToken cancellationToken = default)
+    {
+        await _captureGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        var session = new CaptureSession();
+        try
+        {
+            _capture = session;
+            await SendLineAsync(command, log: false).ConfigureAwait(false);
+            bool? outcome = null;
+            try { outcome = await session.Done.Task.WaitAsync(timeout, cancellationToken).ConfigureAwait(false); }
+            catch (TimeoutException) { }
+            string[] lines;
+            lock (session.Lines) lines = [.. session.Lines];
+            return new CaptureResult(lines, outcome == true, outcome is null);
+        }
+        finally
+        {
+            _capture = null;
+            _captureGate.Release();
+        }
+    }
+
     // ------------------------------------------------------------------ exclusive access (file transfers)
 
     private volatile Transfer.ExclusiveLink? _exclusive;
@@ -243,7 +283,7 @@ public sealed class CarveraController : IAsyncDisposable
             try
             {
                 await Task.Delay(StatusInterval, token).ConfigureAwait(false);
-                if (_exclusive is not null) continue; // no polling while a file transfer runs
+                if (_exclusive is not null || _capture is not null) continue; // no polling while a file transfer or a listing runs
                 // While jogging continuously the status query doubles as the keepalive ("?1", one write).
                 var query = Volatile.Read(ref _continuousJog) == 1 ? MachineCommands.StatusQuery + MachineCommands.JogKeepAlive : MachineCommands.StatusQuery;
                 await WriteAsync(Encoding.ASCII.GetBytes(query), poll: true).ConfigureAwait(false);
@@ -286,10 +326,13 @@ public sealed class CarveraController : IAsyncDisposable
                 for (var i = 0; i < count; i++)
                 {
                     var b = buffer[i];
-                    if (b is (byte)'\n' or 0x04 or 0x18)
+                    if (b is (byte)'\n' or 0x04 or 0x18 or 0x16)
                     {
                         HandleLine(line.ToString().TrimEnd('\r'));
                         line.Clear();
+                        // Commands sent with "-e" end their reply with EOT, or with CAN when they failed.
+                        if (b == 0x04) _capture?.Done.TrySetResult(true);
+                        else if (b == 0x16) _capture?.Done.TrySetResult(false);
                     }
                     else line.Append((char)b);
                 }
@@ -313,7 +356,13 @@ public sealed class CarveraController : IAsyncDisposable
     {
         if (line.Length == 0) return;
         LineReceived?.Invoke(line);
-        switch (ResponseParser.Classify(line))
+        var kind = ResponseParser.Classify(line);
+        if (_capture is { } capture && kind is not (ResponseKind.Status or ResponseKind.Diagnose or ResponseKind.JogStopped))
+        {
+            lock (capture.Lines) capture.Lines.Add(line); // the reply to a captured command; not for the console
+            return;
+        }
+        switch (kind)
         {
             case ResponseKind.Status:
                 if (!ResponseParser.TryParseStatus(line, State)) Console.Warning($"Unrecognised status report: {line}");

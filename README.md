@@ -14,9 +14,7 @@ A Windows controller for Makera Carvera CNC machines, written in C# with [Avalon
 - **See the job in 3D.** The G-code view orbits, pans and zooms like Blender, colours each operation, and lets you scrub through the program. You can see the operations and tools in the file, and change the tool an operation uses.
 - **Stay safe.** If a layout hides or omits Feed Hold, Stop or Reset, the app shows a warning.
 
-| Touch panel layout | Canvas demo (with its deliberate safety warning) |
-|---|---|
-| ![Touch layout](docs/images/touch.png) | ![Canvas demo](docs/images/canvas-demo.png) |
+![The desktop layout](docs/images/desktop.png)
 
 Start with the **[layout guide](docs/layouts.md)**. The **[layout reference](docs/layout-reference.md)** lists every element, property and command, and `schema/layout.schema.json` gives your editor autocompletion.
 
@@ -28,7 +26,7 @@ Start with the **[layout guide](docs/layouts.md)**. The **[layout reference](doc
 
 ```powershell
 dotnet run --project src/Carvera.App                     # remembers the last layout
-dotnet run --project src/Carvera.App -- --layout touch   # a specific layout
+dotnet run --project src/Carvera.App -- --layout desktop # a specific layout
 dotnet run --project src/Carvera.App -- --connect simulator
 ./build/publish.ps1                                      # self-contained build in publish/
 ```

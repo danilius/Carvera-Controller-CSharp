@@ -4,6 +4,7 @@ using Carvera.Core;
 using Carvera.Core.Commands;
 using Carvera.Core.Gcode;
 using Carvera.Core.State;
+using Carvera.Core.Transfer;
 
 namespace Carvera.App.Services;
 
@@ -19,10 +20,18 @@ public sealed class AppServices : IDisposable
         Commands = new CommandRegistry(new CommandContext(controller));
         StandardCommands.Register(Commands);
         AppCommands.Register(Commands, host);
+        Remote = new RemoteBrowser(controller, settings.UploadDirectory);
+        RemoteCommands.Register(Commands, Remote, Transfers, host);
         Pendants = new PendantService(this);
     }
 
     public PendantService Pendants { get; }
+
+    /// <summary>Holds the cancellation of the file transfer in progress; only one runs at a time.</summary>
+    public TransferGate Transfers { get; } = new();
+
+    /// <summary>The file browser's state: the folder shown on the machine, its entries and the selection.</summary>
+    public RemoteBrowser Remote { get; }
 
     public CarveraController Controller { get; }
     public StateStore State => Controller.State;
@@ -97,6 +106,7 @@ public sealed class AppServices : IDisposable
 
     public void Dispose()
     {
+        Remote.Dispose();
         Pendants.Dispose();
         Binder.Dispose();
     }

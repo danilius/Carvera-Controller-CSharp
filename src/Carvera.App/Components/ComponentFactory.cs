@@ -33,6 +33,7 @@ public static class ComponentFactory
         "gcodescrubber" => ProgramComponents.Scrubber(node, host, ctx),
         "operationlist" => ProgramComponents.Operations(node, host, ctx),
         "toollist" => ProgramComponents.Tools(node, host, ctx),
+        "remotefiles" => RemoteFilesComponent.Create(node, host, ctx),
         "layoutselector" => ButtonComponents.LayoutSelector(node, host, ctx),
         _ => throw new NotSupportedException($"Unknown element type '{node.Type}'."),
     };

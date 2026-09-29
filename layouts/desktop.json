@@ -177,7 +177,12 @@
         "children": [
           { "type": "machineStatus", "width": 130 },
           { "type": "connection", "width": "auto", "kinds": ["wifi", "usb", "simulator"] },
-          { "type": "spacer" },
+          {
+            "type": "text", "text": "No file open", "margin": "8 0 0 0", "tooltip": "The G-code file that is open",
+            "conditions": [ { "when": "file.lineCount > 0", "text": "{file.localName}" } ]
+          },
+          { "type": "toggle", "text": "Air", "bind": "switch.air", "command": "setAir", "width": 84, "tooltip": "Air blast on or off" },
+          { "type": "toggle", "text": "Vacuum", "bind": "switch.vacuum", "command": "setVacuum", "width": 100, "tooltip": "Vacuum on or off" },
           { "type": "button", "class": "toolbar-button", "text": "Open file", "command": "openFile", "width": "auto", "visuals": { "normal": { "image": "builtin:folder" } } },
           {
             "type": "button", "class": "toolbar-button", "text": "Upload", "command": "uploadFile", "width": "auto",
@@ -214,7 +219,33 @@
                           { "type": "gcodeScrubber", "height": "auto" }
                         ]
                       },
-                      { "type": "gcodeList", "title": "G-code {file.localName}" }
+                      { "type": "gcodeList", "title": "G-code {file.localName}" },
+                      {
+                        "type": "stack", "title": "Machine files", "spacing": 6,
+                        "children": [
+                          {
+                            "type": "stack", "orientation": "horizontal", "height": 34, "spacing": 6,
+                            "children": [
+                              { "type": "button", "class": "toolbar-button", "text": "Up", "command": "remoteUp", "width": "auto", "visuals": { "normal": { "image": "builtin:arrow-up" } } },
+                              { "type": "button", "class": "toolbar-button", "text": "Refresh", "command": "remoteRefresh", "width": "auto", "visuals": { "normal": { "image": "builtin:reset" } } },
+                              { "type": "button", "class": "toolbar-button", "text": "New folder", "command": "remoteMkdir", "width": "auto", "visuals": { "normal": { "image": "builtin:plus" } } },
+                              { "type": "spacer" },
+                              { "type": "button", "class": "toolbar-button", "text": "Upload here", "command": "remoteUpload", "width": "auto", "tooltip": "Send the open G-code file to this folder", "visuals": { "normal": { "image": "builtin:upload" } } }
+                            ]
+                          },
+                          {
+                            "type": "stack", "orientation": "horizontal", "height": 34, "spacing": 6,
+                            "children": [
+                              { "type": "button", "class": "toolbar-button", "text": "Run", "command": "remotePlay", "width": "auto", "tooltip": "Run the selected file on the machine", "visuals": { "normal": { "image": "builtin:play" } } },
+                              { "type": "button", "class": "toolbar-button", "text": "View", "command": "remoteView", "width": "auto", "tooltip": "Show the selected file in the 3D view without keeping a copy", "visuals": { "normal": { "image": "builtin:target" } } },
+                              { "type": "button", "class": "toolbar-button", "text": "Download", "command": "remoteDownload", "width": "auto", "tooltip": "Save the selected file to this computer", "visuals": { "normal": { "image": "builtin:download" } } },
+                              { "type": "button", "class": "toolbar-button", "text": "Rename", "command": "remoteRename", "width": "auto" },
+                              { "type": "button", "class": "toolbar-button", "text": "Delete", "command": "remoteDelete", "width": "auto", "visuals": { "normal": { "image": "builtin:close" } } }
+                            ]
+                          },
+                          { "type": "remoteFiles" }
+                        ]
+                      }
                     ]
                   },
                   {
@@ -229,6 +260,10 @@
               {
                 "type": "progress", "height": 24, "visible": "job.playing",
                 "text": "{job.percent:0}%  ·  line {job.lines}  ·  {job.seconds} s"
+              },
+              {
+                "type": "progress", "height": 24, "visible": "transfer.active", "bind": "transfer.percent",
+                "text": "{transfer.phase} {transfer.name}  ·  {transfer.percent:0}%"
               },
               {
                 "type": "panel", "title": "Console", "height": 210, "spacing": 6,

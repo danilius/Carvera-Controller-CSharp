@@ -85,6 +85,14 @@ public static class StatePaths
     public const string TransferMessage = "transfer.message";      // last result, e.g. "Uploaded part.nc"
     public const string TransferDecompressed = "transfer.decompressed"; // blocks the machine has unpacked so far
 
+    public const string RemoteDirectory = "remote.dir";                // folder the file browser shows, e.g. /sd/gcodes
+    public const string RemoteCount = "remote.count";                  // entries in it
+    public const string RemoteLoading = "remote.loading";              // bool
+    public const string RemoteError = "remote.error";                  // last listing or file-operation error, or null
+    public const string RemoteSelected = "remote.selected";            // path of the selected entry, or null
+    public const string RemoteSelectedName = "remote.selectedName";
+    public const string RemoteSelectedIsDirectory = "remote.selectedIsDirectory";
+
     public const string PendantConnected = "pendant.connected";    // bool
     public const string PendantName = "pendant.name";              // e.g. "CYD"
 }

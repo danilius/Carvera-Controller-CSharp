@@ -51,6 +51,45 @@ public static class Dialogs
         return result;
     }
 
+    /// <summary>Asks for one line of text. Enter accepts, Esc cancels. Returns null when cancelled (or without an owner window).</summary>
+    public static async Task<string?> PromptAsync(Window? owner, string title, string label, string initial)
+    {
+        if (owner is null) return null;
+        string? result = null;
+        var dialog = new Window
+        {
+            Title = title,
+            Width = 420,
+            SizeToContent = SizeToContent.Height,
+            CanResize = false,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Background = Brushes.White,
+        };
+        var box = new TextBox { Text = initial };
+        var ok = new Button { Content = "OK", MinWidth = 80, IsDefault = true };
+        var cancel = new Button { Content = "Cancel", MinWidth = 80, IsCancel = true };
+        ok.Click += (_, _) => { result = box.Text; dialog.Close(); };
+        cancel.Click += (_, _) => dialog.Close();
+        dialog.Content = new StackPanel
+        {
+            Margin = new Thickness(16),
+            Spacing = 10,
+            Children =
+            {
+                new TextBlock { Text = label, TextWrapping = TextWrapping.Wrap },
+                box,
+                new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Right, Children = { ok, cancel } },
+            },
+        };
+        dialog.Opened += (_, _) =>
+        {
+            box.Focus();
+            box.SelectAll();
+        };
+        await dialog.ShowDialog(owner);
+        return result;
+    }
+
     /// <summary>Asks a yes/no question. Returns true for Yes. Without an owner window it returns true.</summary>
     public static async Task<bool> ConfirmAsync(Window? owner, string message, string title = "Please confirm")
     {
