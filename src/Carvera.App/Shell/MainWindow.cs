@@ -111,6 +111,13 @@ public sealed class MainWindow : Window, IAppHost
             var lines = new List<string> { "G21 G90" };
             for (var i = 0; i < 120_000; i++)
                 lines.Add($"G1 X{(i % 300) * 0.4:0.###} Y{(i / 300) * 0.05:0.###} Z{-Math.Abs(Math.Sin(i * 0.01)) * 3:0.###} F800");
+            // A sparse part with rapids and long feed moves beside the dense block, so line width and dashes can be judged in the capture.
+            for (var k = 0; k < 9; k++)
+            {
+                lines.Add($"G0 X{k * 14} Y45 Z5");
+                lines.Add($"G1 X{k * 14 + 9} Y{55 + 12 * (k % 3)} Z-2 F600");
+                lines.Add($"G1 X{k * 14 + 3} Y95 Z-2");
+            }
             _services.SetProgram(GcodeProgram.Parse(lines, null));
             var view = _session?.Root.GetVisualDescendants().OfType<Components.Viewer.ToolpathView>().FirstOrDefault();
             if (view is null)
@@ -535,6 +542,17 @@ public sealed class MainWindow : Window, IAppHost
 
     // ------------------------------------------------------------------ IAppHost
 
+    /// <summary>The folder the file pickers open in: the one last used for a local file, when it still exists.</summary>
+    private async Task<IStorageFolder?> StartFolderAsync() =>
+        _services.Settings.LastFolder is { } folder ? await StorageProvider.TryGetFolderFromPathAsync(folder) : null;
+
+    /// <summary>Remembers the folder of a file the user picked, for the next picker.</summary>
+    private void RememberFolderOf(string? path)
+    {
+        if (path is null) return;
+        _services.Settings.RememberFolder(System.IO.Directory.Exists(path) ? path : Path.GetDirectoryName(path));
+    }
+
     public async Task OpenFileAsync(string? path)
     {
         if (path is null)
@@ -543,6 +561,7 @@ public sealed class MainWindow : Window, IAppHost
             {
                 Title = "Open G-code",
                 AllowMultiple = false,
+                SuggestedStartLocation = await StartFolderAsync(),
                 FileTypeFilter =
                 [
                     new FilePickerFileType("G-code") { Patterns = ["*.nc", "*.gcode", "*.gc", "*.ngc", "*.cnc", "*.tap", "*.txt"] },
@@ -551,6 +570,7 @@ public sealed class MainWindow : Window, IAppHost
             });
             path = files.FirstOrDefault()?.TryGetLocalPath();
             if (path is null) return;
+            RememberFolderOf(path);
         }
         var program = await Task.Run(() => GcodeProgram.Load(path));
         _services.SetProgram(program);
@@ -594,9 +614,11 @@ public sealed class MainWindow : Window, IAppHost
                 Title = "Save G-code as",
                 SuggestedFileName = program.Path is { } p ? Path.GetFileNameWithoutExtension(p) + "-edited" + Path.GetExtension(p) : "program.nc",
                 DefaultExtension = program.Path is { } q ? Path.GetExtension(q).TrimStart('.') : "nc",
+                SuggestedStartLocation = program.Path is { } origin ? await StorageProvider.TryGetFolderFromPathAsync(Path.GetDirectoryName(origin)!) : await StartFolderAsync(),
             });
             path = file?.TryGetLocalPath();
             if (path is null) return;
+            RememberFolderOf(path);
         }
         await File.WriteAllLinesAsync(path, program.Lines);
         _services.SetProgram(GcodeProgram.Parse(program.Lines, path));
@@ -638,12 +660,38 @@ public sealed class MainWindow : Window, IAppHost
 
     public async Task<string?> PickSavePathAsync(string suggestedName)
     {
-        var file = await Dispatcher.UIThread.InvokeAsync(() => StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+        var file = await Dispatcher.UIThread.InvokeAsync(async () => await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
         {
             Title = "Save the file from the machine",
             SuggestedFileName = suggestedName,
+            SuggestedStartLocation = await StartFolderAsync(),
         }));
-        return file?.TryGetLocalPath();
+        var path = file?.TryGetLocalPath();
+        RememberFolderOf(path);
+        return path;
+    }
+
+    public async Task<string?> PickFolderAsync(string title)
+    {
+        var folders = await Dispatcher.UIThread.InvokeAsync(async () =>
+            await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions { Title = title, AllowMultiple = false, SuggestedStartLocation = await StartFolderAsync() }));
+        var path = folders.FirstOrDefault()?.TryGetLocalPath();
+        RememberFolderOf(path);
+        return path;
+    }
+
+    public async Task<string?> PickOpenPathAsync(string title, params string[] patterns)
+    {
+        var files = await Dispatcher.UIThread.InvokeAsync(async () => await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = title,
+            AllowMultiple = false,
+            FileTypeFilter = [new FilePickerFileType("Files") { Patterns = patterns }, FilePickerFileTypes.All],
+            SuggestedStartLocation = await StartFolderAsync(),
+        }));
+        var path = files.FirstOrDefault()?.TryGetLocalPath();
+        RememberFolderOf(path);
+        return path;
     }
 
     public async Task UploadFileAsync(string? path, string? remoteDirectory)
@@ -664,10 +712,11 @@ public sealed class MainWindow : Window, IAppHost
         }
         if (path is null)
         {
-            var files = await Dispatcher.UIThread.InvokeAsync(() => StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+            var files = await Dispatcher.UIThread.InvokeAsync(async () => await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
             {
                 Title = "Upload G-code to the machine",
                 AllowMultiple = false,
+                SuggestedStartLocation = await StartFolderAsync(),
                 FileTypeFilter =
                 [
                     new FilePickerFileType("G-code") { Patterns = ["*.nc", "*.gcode", "*.gc", "*.ngc", "*.cnc", "*.tap", "*.txt"] },
@@ -676,6 +725,7 @@ public sealed class MainWindow : Window, IAppHost
             }));
             path = files.FirstOrDefault()?.TryGetLocalPath();
             if (path is null) return;
+            RememberFolderOf(path);
         }
 
         var settings = _services.Settings;

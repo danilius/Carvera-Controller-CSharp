@@ -353,14 +353,7 @@ public sealed class CydPendant : IDisposable
         return s.Length > 0 ? s : "unknown";
     }
 
-    public static string ToolLabel(int tool) => tool switch
-    {
-        0 => "Probe",
-        8888 => "Laser",
-        >= 999990 and <= 999999 => "3D Probe",
-        > 0 => $"T{tool}",
-        _ => "No Tool",
-    };
+    public static string ToolLabel(int tool) => ToolInfo.Label(tool);
 
     private bool SpindleOn()
     {
@@ -827,8 +820,13 @@ public sealed class CydPendant : IDisposable
                         SendPositionResult(true, action: action, message: "Going to work origin");
                         return;
                     case "path_origin":
-                        // Needs the loaded program's extents on the machine side, which this app does not track yet.
-                        SendPositionResult(false, "path_origin_unavailable", action);
+                        if (ProbeCommands.GotoPathOrigin(_state) is not { } gotoPath)
+                        {
+                            SendPositionResult(false, "path_origin_unavailable", action);
+                            return;
+                        }
+                        SendLine(gotoPath);
+                        SendPositionResult(true, action: action, message: "Going to path origin");
                         return;
                     default:
                         SendPositionResult(false, "unsupported_target", action);

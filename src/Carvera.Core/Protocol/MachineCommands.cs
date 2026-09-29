@@ -68,6 +68,17 @@ public static class MachineCommands
         return sb.Append('\n').ToString();
     }
 
+    /// <summary>G10 L2 P0: set the active work offset itself, to the given machine coordinates (the Python controller's wcsSetM).</summary>
+    public static string SetWorkOffset(double? x = null, double? y = null, double? z = null, double? a = null)
+    {
+        var sb = new StringBuilder("G10L2P0");
+        if (x is { } vx && Math.Abs(vx) < 10000) sb.Append('X').Append(N(vx));
+        if (y is { } vy && Math.Abs(vy) < 10000) sb.Append('Y').Append(N(vy));
+        if (z is { } vz && Math.Abs(vz) < 10000) sb.Append('Z').Append(N(vz));
+        if (a is { } va && Math.Abs(va) < 3600000) sb.Append('A').Append(N(va));
+        return sb.Append('\n').ToString();
+    }
+
     public static string SelectWcs(int index) => ResponseParser.WcsNames[Math.Clamp(index, 0, ResponseParser.WcsNames.Length - 1)] + "\n";
     public static string SetRotation(double degrees) => $"G10L2R{degrees.ToString("0.000", CultureInfo.InvariantCulture)}P0\n";
     public const string ClearRotation = "G10L2R0P0\n";

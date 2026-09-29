@@ -205,6 +205,18 @@ public sealed class SettingsView : UserControl
             if (renderer.SelectedItem is string choice) _settings.ViewerRenderer = choice;
             _settings.Save();
         };
+        var scheme = new ComboBox();
+        foreach (var name in Layout.ColorSchemes.Names) scheme.Items.Add(name);
+        scheme.SelectedItem = Layout.ColorSchemes.Names.Contains(_settings.GcodeColorScheme) ? _settings.GcodeColorScheme : Layout.ColorSchemes.Layout;
+        scheme.SelectionChanged += (_, _) =>
+        {
+            if (scheme.SelectedItem is not string choice || choice == _settings.GcodeColorScheme) return;
+            _settings.GcodeColorScheme = choice;
+            _settings.Save();
+            if (_services.State.Get<string>(StatePaths.LayoutName) is { Length: > 0 } current) _loadLayout(current); // rebuild with the new colours
+        };
+        Row(rows, "Operation colours", "The colours the operations of a G-code file are drawn in, in the 3D view, the G-code list and the operation list. " +
+            "Layout uses whatever the layout's theme defines (operation1 to operation10).", scheme);
         Row(rows, "Draw the toolpath with", $"Auto uses the GPU for programs of {Components.Viewer.ToolpathView.AutoGpuSegments:N0} path segments or more, where the CPU renderer gets slow, and the CPU for smaller ones. " +
             "Choose CPU if the GPU view looks wrong; the app also falls back to the CPU by itself when the GPU cannot be used. The change applies when the view next redraws.", renderer);
     }

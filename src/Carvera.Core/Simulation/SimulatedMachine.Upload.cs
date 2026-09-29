@@ -13,6 +13,7 @@ public sealed partial class SimulatedMachine
     private readonly Dictionary<string, (byte[] Data, DateTime Modified)> _files = new(StringComparer.Ordinal)
     {
         ["/sd/gcodes/demo part.nc"] = (System.Text.Encoding.ASCII.GetBytes("G21 G90\nG1 X10 Y10 F800\n"), new DateTime(2026, 9, 1, 10, 30, 0)),
+        ["/sd/config.txt"] = (System.Text.Encoding.ASCII.GetBytes("# Simulated machine configuration\nswitch.vacuum.default_on_value       80\nswitch.light.startup_state           true\nlight.turn_off_min                   10   # idle minutes\nstop_on_cover_open                   false\nmain_button_long_press_enable        Sleep\n"), new DateTime(2026, 7, 1, 8, 0, 0)),
         ["/sd/gcodes/notes.txt"] = (System.Text.Encoding.ASCII.GetBytes("hello"), new DateTime(2026, 8, 15, 9, 0, 0)),
     };
     private readonly HashSet<string> _folders = new(StringComparer.Ordinal) { "/sd", "/sd/gcodes", "/sd/gcodes/old jobs" };
@@ -20,6 +21,12 @@ public sealed partial class SimulatedMachine
     /// <summary>Everything on the simulated SD card, by path (files that came with the simulator and uploaded ones).</summary>
     public IReadOnlyDictionary<string, byte[]> Files { get { lock (_gate) return _files.ToDictionary(f => f.Key, f => f.Value.Data); } }
     public IReadOnlyCollection<string> Folders { get { lock (_gate) return [.. _folders]; } }
+
+    /// <summary>Puts a file on the simulated SD card exactly as given (for tests: for example data already in .lz format).</summary>
+    public void PutFile(string path, byte[] data)
+    {
+        lock (_gate) _files[path] = (data, DateTime.Now);
+    }
 
     private static string ParentOf(string path) => path.LastIndexOf('/') is var cut and > 0 ? path[..cut] : "/";
 
@@ -49,6 +56,21 @@ public sealed partial class SimulatedMachine
                 else if (_folders.Contains(arguments[0]) && !_files.Keys.Any(f => ParentOf(f) == arguments[0]) && !_folders.Any(f => f != arguments[0] && ParentOf(f) == arguments[0]) && arguments[0] != "/sd")
                 { _folders.Remove(arguments[0]); Done(); }
                 else Fail();
+                return true;
+            case "config-set":
+                // config-set sd <key> <value>: rewrites the line for the key in config.txt, or appends one
+                if (words.Length < 4 || words[1] != "sd") { Fail(); return true; }
+                var configText = Encoding.ASCII.GetString(_files["/sd/config.txt"].Data);
+                var configLines = configText.Split('\n').ToList();
+                var newLine = $"{words[2]}  {string.Join(' ', words.Skip(3))}";
+                var at = configLines.FindIndex(l => l.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries) is [var k, ..] && k == words[2]);
+                if (at >= 0) configLines[at] = newLine; else configLines.Insert(Math.Max(0, configLines.Count - 1), newLine);
+                _files["/sd/config.txt"] = (Encoding.ASCII.GetBytes(string.Join('\n', configLines)), DateTime.Now);
+                Reply($"{words[2]} has been set to {string.Join(' ', words.Skip(3))}");
+                return true;
+            case "config-restore":
+            case "config-default":
+                Reply(words[0].ToLowerInvariant() == "config-restore" ? "Restored default configuration" : "Saved current configuration as default");
                 return true;
             case "mkdir":
                 if (arguments.Count != 1 || _folders.Contains(arguments[0]) || _files.ContainsKey(arguments[0]) || !_folders.Contains(ParentOf(arguments[0]))) Fail();
@@ -108,7 +130,7 @@ public sealed partial class SimulatedMachine
                     position += 4 + (int)System.Buffers.Binary.BinaryPrimitives.ReadUInt32BigEndian(data.AsSpan(position));
                     blocks++;
                 }
-                data = LzFile.ReadStored(data);
+                data = LzFile.Read(data);
                 // The real machine unpacks after the transfer has ended, reporting as it goes.
                 _ = Task.Run(async () =>
                 {

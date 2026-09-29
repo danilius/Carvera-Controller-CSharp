@@ -9,7 +9,7 @@ namespace Carvera.App.Components.Viewer;
 /// </summary>
 internal sealed unsafe class GlApi
 {
-    public const int ArrayBuffer = 0x8892, StaticDraw = 0x88E4, Float = 0x1406, Lines = 0x0001;
+    public const int ArrayBuffer = 0x8892, StaticDraw = 0x88E4, Float = 0x1406, Lines = 0x0001, Triangles = 0x0004;
     public const int VertexShader = 0x8B31, FragmentShader = 0x8B30, CompileStatus = 0x8B81, LinkStatus = 0x8B82, InfoLogLength = 0x8B84;
     public const int Blend = 0x0BE2, One = 1, SrcAlpha = 0x0302, OneMinusSrcAlpha = 0x0303, ColorBufferBit = 0x4000;
 
@@ -33,6 +33,9 @@ internal sealed unsafe class GlApi
     private readonly delegate* unmanaged<int, int, float*, void> _uniform4fv;
     private readonly delegate* unmanaged<int, int, int, byte, int, nint, void> _vertexAttribPointer;
     private readonly delegate* unmanaged<int, int, int, void> _drawArrays;
+    private readonly delegate* unmanaged<int, int, int, int, void> _drawArraysInstanced;
+    private readonly delegate* unmanaged<int, int, void> _vertexAttribDivisor;
+    private readonly delegate* unmanaged<int, float, float, void> _uniform2f;
 
     public GlApi(Func<string, nint> getProcAddress)
     {
@@ -78,6 +81,9 @@ internal sealed unsafe class GlApi
         _vertexAttribPointer = (delegate* unmanaged<int, int, int, byte, int, nint, void>)P("glVertexAttribPointer");
         _drawArrays = (delegate* unmanaged<int, int, int, void>)P("glDrawArrays");
         _getError = (delegate* unmanaged<int>)P("glGetError");
+        _drawArraysInstanced = (delegate* unmanaged<int, int, int, int, void>)P("glDrawArraysInstanced");
+        _vertexAttribDivisor = (delegate* unmanaged<int, int, void>)P("glVertexAttribDivisor");
+        _uniform2f = (delegate* unmanaged<int, float, float, void>)P("glUniform2f");
     }
 
     public void Viewport(int x, int y, int width, int height) => _viewport(x, y, width, height);
@@ -92,6 +98,9 @@ internal sealed unsafe class GlApi
     public void EnableVertexAttribArray(int index) => _enableVertexAttribArray(index);
     public void VertexAttribPointer(int index, int size, int stride, int offset) => _vertexAttribPointer(index, size, Float, 0, stride, offset);
     public void DrawArrays(int mode, int first, int count) => _drawArrays(mode, first, count);
+    public void DrawArraysInstanced(int mode, int first, int count, int instances) => _drawArraysInstanced(mode, first, count, instances);
+    /// <summary>Makes an attribute advance once per instance (1) instead of once per vertex (0).</summary>
+    public void VertexAttribDivisor(int index, int divisor) => _vertexAttribDivisor(index, divisor);
     public int GetError() => _getError();
     public void DeleteProgram(int program) => _deleteProgram(program);
 
@@ -118,6 +127,7 @@ internal sealed unsafe class GlApi
     }
 
     public void Uniform(int location, float value) => _uniform1f(location, value);
+    public void Uniform(int location, float x, float y) => _uniform2f(location, x, y);
     public void Uniform1i(int location, int value) => _uniform1i(location, value);
     public void Uniform(int location, float r, float g, float b, float a) => _uniform4f(location, r, g, b, a);
 

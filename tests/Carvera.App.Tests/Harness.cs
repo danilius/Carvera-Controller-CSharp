@@ -13,10 +13,10 @@ namespace Carvera.App.Tests;
 /// <summary>Builds a layout from JSON into a headless window.</summary>
 public sealed class Harness : IDisposable
 {
-    public Harness(string json, double width = 800, double height = 600)
+    public Harness(string json, double width = 800, double height = 600, Settings? settings = null)
     {
         Controller = new CarveraController();
-        Services = new AppServices(Controller, new NullHost(), new LayoutLibrary([Path.Combine(AppContext.BaseDirectory, "layouts")]), new Settings());
+        Services = new AppServices(Controller, new NullHost(), new LayoutLibrary([Path.Combine(AppContext.BaseDirectory, "layouts")]), settings ?? new Settings());
         var result = LayoutLoader.Load(json, "test", Path.Combine(AppContext.BaseDirectory, "layouts"), null, new LayoutValidator(Services.Commands));
         if (result.Document is null) throw new InvalidOperationException(string.Join("\n", result.Diagnostics));
         Session = new LayoutSession(result.Document, Services);

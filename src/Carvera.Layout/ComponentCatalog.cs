@@ -213,6 +213,13 @@ public static class ComponentCatalog
         new("toolList", "The tools the loaded G-code uses: number, description, diameter, type and the operations that use each. Highlights the tool in the spindle and the one at the scrub position.", ChildRule.None,
             [], BaseStates),
         new("remoteFiles", "The files and folders on the machine's SD card: the folder path, then one row per entry with its size and date. Click selects, double-click opens a folder. Drive it with the remote* commands (remoteUp, remoteRefresh, remoteMkdir, remoteRename, remoteDelete, remotePlay, remoteUpload); the state is under remote.*.", ChildRule.None, [], BaseStates),
+        new("machineConfig", "The machine's own settings (its config.txt): one field per setting, grouped, with the explanation as a tooltip. Read them from the machine with configLoad, edit, then send with configApply; the machine needs a reset afterwards. Edited fields are highlighted. Also configDiscard, configRestore and configSaveDefault.", ChildRule.None,
+            [S("section", PropKind.Enum, "Show only the Basic or the Advanced settings (default: both).", "Basic", "Advanced")],
+            BaseStates),
+        new("probePanel", "Probing: pick a family (bore, boss, corners, single axis, angle, probe tip, calibration, 4th axis), fill in the parameters, and press an operation to run it on the machine (asks first). The values are remembered. The command that would be sent is shown live.", ChildRule.None,
+            [S("family", PropKind.Enum, "Show only this family (no picker). Default: all, with a picker.", "singleAxis", "outsideCorner", "insideCorner", "bore", "boss", "angle", "probeTip", "calibration", "fourthAxis"),
+             S("showDescriptions", PropKind.Bool, "Show each parameter's explanation under its field (default false; it is always in the tooltip).")],
+            BaseStates),
         new("layoutSelector", "Switches between the available layout files.", ChildRule.None, [], BaseStates),
     ];
 

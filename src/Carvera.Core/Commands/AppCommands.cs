@@ -26,6 +26,10 @@ public interface IAppHost
     Task<string?> PromptAsync(string title, string label, string initial);
     /// <summary>Asks where to save a file. Returns the chosen path, or null when the user cancels.</summary>
     Task<string?> PickSavePathAsync(string suggestedName);
+    /// <summary>Asks which existing file to use. Returns its path, or null when the user cancels (or the host cannot ask).</summary>
+    Task<string?> PickOpenPathAsync(string title, params string[] patterns) => Task.FromResult<string?>(null);
+    /// <summary>Asks which folder to use. Returns its path, or null when the user cancels (or the host cannot ask).</summary>
+    Task<string?> PickFolderAsync(string title) => Task.FromResult<string?>(null);
 }
 
 public static class AppCommands
@@ -77,6 +81,10 @@ public static class AppCommands
         StandardCommands.Register(registry);
         Register(registry, new NullHost());
         RemoteCommands.Register(registry, new Transfer.RemoteBrowser(controller), new Transfer.TransferGate(), new NullHost());
+        ToolCommands.Register(registry, new NullHost());
+        ConfigCommands.Register(registry, new Config.MachineConfigStore(controller), new NullHost());
+        ProbeCommands.Register(registry, new NullHost());
+        WorkCommands.Register(registry, new NullHost());
         return registry;
     }
 

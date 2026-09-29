@@ -92,15 +92,14 @@ public class GpuViewerTests
     }
 
     [Fact]
-    public void VertexDataHoldsPositionsAndTheNumbersTheShaderColoursBy()
+    public void InstanceDataHoldsBothEndsAndTheNumbersTheShaderColoursBy()
     {
         var starts = new[] { new Vector3(1, 2, 3), new Vector3(4, 5, 6) };
         var ends = new[] { new Vector3(7, 8, 9), new Vector3(10, 11, 12) };
         var data = GlPathLayer.Build(starts, ends, [0, 2], [10, 20], [false, true]);
-        Assert.Equal(2 * 2 * GlPathLayer.FloatsPerVertex, data.Length);
-        // segment 1, start vertex: x y z, segment, operation, line, rapid
-        Assert.Equal(new float[] { 4, 5, 6, 1, 2, 20, 1 }, data[(2 * GlPathLayer.FloatsPerVertex)..(3 * GlPathLayer.FloatsPerVertex)]);
-        // segment 0, end vertex
-        Assert.Equal(new float[] { 7, 8, 9, 0, 0, 10, 0 }, data[GlPathLayer.FloatsPerVertex..(2 * GlPathLayer.FloatsPerVertex)]);
+        Assert.Equal(2 * GlPathLayer.FloatsPerSegment, data.Length);
+        // each segment: start, end, then segment, operation, line, rapid
+        Assert.Equal(new float[] { 1, 2, 3, 7, 8, 9, 0, 0, 10, 0 }, data[..GlPathLayer.FloatsPerSegment]);
+        Assert.Equal(new float[] { 4, 5, 6, 10, 11, 12, 1, 2, 20, 1 }, data[GlPathLayer.FloatsPerSegment..]);
     }
 }

@@ -31,6 +31,8 @@ public sealed partial class SimulatedMachine : IMachineStream
     private Timer? _motion;
 
     public string Description => "Simulator";
+    /// <summary>When true the machine stops answering status queries, like a firmware that has hung.</summary>
+    public volatile bool IgnoreStatusQueries;
 
     public double[] MachinePosition { get { lock (_gate) return (double[])_machine.Clone(); } }
 
@@ -84,7 +86,7 @@ public sealed partial class SimulatedMachine : IMachineStream
         }
         switch (b)
         {
-            case (byte)'?': Reply(StatusReport()); return;
+            case (byte)'?': if (!IgnoreStatusQueries) Reply(StatusReport()); return;
             case MachineCommands.FeedHold: lock (_gate) { if (_state is "Run" or "Idle") { _held = true; _state = "Hold"; } } return;
             case MachineCommands.CycleStart: lock (_gate) { if (_held) { _held = false; _state = _pendingMoves.Count > 0 ? "Run" : "Idle"; } } return;
             case MachineCommands.SoftReset:

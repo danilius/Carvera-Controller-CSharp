@@ -45,7 +45,7 @@ Every element has a `type`. **Containers** arrange children; **components** do s
 | `scroll` | Scrolls one `child`. |
 | `canvas` | Free placement with `x`/`y`. |
 
-Components include `toolpath` (the 3D G-code view), `gcodeScrubber`, `operationList`, `toolList`, `gcodeList`, `axisReadout`, `machineStatus`, `button`, `toggle`, `choice`, `jogPad`, `jogStep`, `wcsSelector`, `override`, `slider`, `value`, `text`, `indicator`, `progress`, `image`, `console`, `mdi`, `connection`, `toolpath`, `gcodeList`, `layoutSelector` and `spacer`. The [reference](layout-reference.md) lists their properties.
+Components include `toolpath` (the 3D G-code view), `gcodeScrubber`, `operationList`, `toolList`, `gcodeList`, `axisReadout`, `machineStatus`, `button`, `toggle`, `choice`, `jogPad`, `jogStep`, `wcsSelector`, `override`, `slider`, `value`, `text`, `indicator`, `progress`, `image`, `console`, `mdi`, `connection`, `remoteFiles` (the machine's SD card), `probePanel` (probing), `machineConfig` (the machine's settings), `layoutSelector` and `spacer`. The [reference](layout-reference.md) lists their properties.
 
 ## Sizing works like a web page
 
@@ -160,7 +160,16 @@ Colours can refer to theme tokens with `@name` (`@accent`, `@surface`, `@danger`
   - Edits apply to the copy in memory. Use **Save as** (`saveFile`) to write them.
 - **`toolList`** shows each tool's number, description, diameter and type, and the operations that use it. It highlights the tool in the spindle (green) and the tool at the scrub position (blue).
 
-Each operation's colour comes from the theme tokens `operation1`…`operation10`.
+Each operation's colour comes from the theme tokens `operation1`…`operation10`. The user can override them with a colour scheme in Settings > 3D view (colour-blind safe, high contrast and others); the choice replaces the layout's tokens until set back to *Layout*.
+
+## Machine functions built from ordinary elements
+
+Some machine functions have no component of their own: their commands publish state and a layout shows it with `text`, `toggle` and `button`.
+
+- **Ring-gauge drift check** (the *Ring gauge* tab of `desktop.json`): `ringGaugeProbe`, `ringGaugeBack`, `ringGaugeReset`, `ringGaugeApplyTip`, `ringGaugePersist`, and the state `probe.drift.title`, `.text`, `.primary` (the main button's caption), `.points`, `.result`, `.stored`, `.step`, `.done`, `.running`, `.applyTip` and `.persist`. The correction it stores is applied after XY-zeroing probes by the `probe` command.
+- **Z probe position:** `zProbeSetup` asks for the origin (work or path) and the X and Y offset; `zprobe.label`, `zprobe.origin`, `zprobe.x` and `zprobe.y` describe it, and `autoRun` with `zProbe` uses it.
+- **Set work origin:** `setWorkOrigin` asks for an anchor (`anchor1`, `anchor2`, `current` or `rotation`) and an X and Y offset.
+- **Configuration backup:** `configBackup` copies the machine's configuration files to a folder on the computer.
 
 ## Commands
 

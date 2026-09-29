@@ -19,7 +19,10 @@ public sealed class BuildContext : IDisposable
     {
         Document = document;
         Services = services;
-        Theme = new Theme(document.Theme);
+        // The user's colour scheme (Settings > 3D view) wins over the layout's operation colours.
+        var tokens = new Dictionary<string, string>(document.Theme, StringComparer.OrdinalIgnoreCase);
+        foreach (var (name, color) in ColorSchemes.Tokens(services.Settings.GcodeColorScheme)) tokens[name] = color;
+        Theme = new Theme(tokens);
         Images = new ImageLoader(document.BaseDirectory, services.Console);
         _styles = document.Styles.ToDictionary(p => p.Key, p => VisualBlock.Parse(p.Value), StringComparer.OrdinalIgnoreCase);
     }

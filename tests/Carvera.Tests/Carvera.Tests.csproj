@@ -13,5 +13,6 @@
   <ItemGroup>
     <None Include="../../layouts/**/*" LinkBase="layouts" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../../schema/*.json" LinkBase="schema" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Fixtures/**/*" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

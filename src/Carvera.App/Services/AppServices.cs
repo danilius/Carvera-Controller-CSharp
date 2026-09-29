@@ -2,6 +2,7 @@ using Avalonia.Controls;
 using Carvera.App.Layout;
 using Carvera.Core;
 using Carvera.Core.Commands;
+using Carvera.Core.Config;
 using Carvera.Core.Gcode;
 using Carvera.Core.State;
 using Carvera.Core.Transfer;
@@ -22,10 +23,16 @@ public sealed class AppServices : IDisposable
         AppCommands.Register(Commands, host);
         Remote = new RemoteBrowser(controller, settings.UploadDirectory);
         RemoteCommands.Register(Commands, Remote, Transfers, host);
+        ToolCommands.Register(Commands, host);
+        MachineConfig = new MachineConfigStore(controller);
+        ConfigCommands.Register(Commands, MachineConfig, host);
+        ProbeCommands.Register(Commands, host, new SettingsProbeStore(settings));
+        WorkCommands.Register(Commands, host, MachineConfig);
         Pendants = new PendantService(this);
     }
 
     public PendantService Pendants { get; }
+    public MachineConfigStore MachineConfig { get; }
 
     /// <summary>Holds the cancellation of the file transfer in progress; only one runs at a time.</summary>
     public TransferGate Transfers { get; } = new();
@@ -57,6 +64,14 @@ public sealed class AppServices : IDisposable
             State.Set(StatePaths.LocalFileLines, program?.Lines.Count ?? 0);
             State.Set(StatePaths.FileOperations, program?.Operations.Count ?? 0);
             State.Set(StatePaths.FileModified, modified);
+            var hasBounds = program is { Segments.Count: > 0 };
+            State.Set(StatePaths.FileHasBounds, hasBounds);
+            State.Set(StatePaths.FileXMin, hasBounds ? program!.Min.X : 0.0);
+            State.Set(StatePaths.FileXMax, hasBounds ? program!.Max.X : 0.0);
+            State.Set(StatePaths.FileYMin, hasBounds ? program!.Min.Y : 0.0);
+            State.Set(StatePaths.FileYMax, hasBounds ? program!.Max.Y : 0.0);
+            State.Set(StatePaths.FileZMin, hasBounds ? program!.Min.Z : 0.0);
+            State.Set(StatePaths.FileZMax, hasBounds ? program!.Max.Z : 0.0);
             if (!keepPreview)
             {
                 SetPreviewSegment(-1);

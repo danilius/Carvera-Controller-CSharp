@@ -14,6 +14,12 @@ public static class StatePaths
     public const string FirmwareVersion = "machine.firmware";
     public const string CommunityFirmware = "machine.communityFirmware";
     public const string HaltReason = "machine.haltReason";
+    /// <summary>True from connecting until the first status report arrives: the "Wait" shown meanwhile is a placeholder, not the machine's own.</summary>
+    public const string AwaitingStatus = "machine.awaitingStatus";
+    /// <summary>True when the machine has stopped answering status queries for longer than <see cref="CarveraController.StallTimeout"/>.</summary>
+    public const string Stalled = "machine.stalled";
+    /// <summary>Whole seconds since the last status report while <see cref="Stalled"/>, else 0.</summary>
+    public const string SilentSeconds = "machine.silentSeconds";
     public const string InchMode = "units.inch";
     public const string AbsoluteMode = "units.absolute";
 
@@ -39,7 +45,21 @@ public static class StatePaths
     public const string ToolOffset = "tool.offset";
     public const string ToolTarget = "tool.target";
     public const string AtcState = "atc.state";
+    /// <summary>Derived: "T3", "Probe", "Laser", "3D Probe" or "No Tool".</summary>
+    public const string ToolLabel = "tool.label";
+    /// <summary>Derived: the same naming for the tool being changed to, or empty when no change is under way.</summary>
+    public const string ToolTargetLabel = "tool.targetLabel";
+    /// <summary>Derived: what the automatic tool changer is doing, or empty.</summary>
+    public const string AtcLabel = "atc.label";
     public const string ProbeVoltage = "probe.voltage";
+
+    // Ring-gauge drift check (RingGaugeSession) and the Z probe position (see ProbeCommands).
+    public const string DriftEnabled = "probe.drift.enabled", DriftX = "probe.drift.x", DriftY = "probe.drift.y";
+    public const string DriftStep = "probe.drift.step", DriftDone = "probe.drift.done", DriftRunning = "probe.drift.running";
+    public const string DriftTitle = "probe.drift.title", DriftText = "probe.drift.text", DriftPrimary = "probe.drift.primary";
+    public const string DriftPoints = "probe.drift.points", DriftResult = "probe.drift.result", DriftStored = "probe.drift.stored";
+    public const string DriftApplyTip = "probe.drift.applyTip", DriftPersist = "probe.drift.persist";
+    public const string ZProbeOrigin = "zprobe.origin", ZProbeX = "zprobe.x", ZProbeY = "zprobe.y", ZProbeLabel = "zprobe.label";
 
     public const string LaserMode = "laser.mode";
     public const string LaserState = "laser.state";
@@ -61,6 +81,10 @@ public static class StatePaths
     public const string LocalFileName = "file.localName";
     public const string LocalFileLines = "file.lineCount";
     public const string FileModified = "file.modified";
+    /// <summary>True when the open program has moves, so the extents below are valid.</summary>
+    public const string FileHasBounds = "file.hasBounds";
+    /// <summary>Extents of the open program's moves in its own (work) coordinates.</summary>
+    public const string FileXMin = "file.xmin", FileXMax = "file.xmax", FileYMin = "file.ymin", FileYMax = "file.ymax", FileZMin = "file.zmin", FileZMax = "file.zmax";
     public const string FileOperations = "file.operationCount";
 
     /// <summary>Scrub position: index of the last previewed path segment, or -1 to show everything.</summary>
@@ -92,6 +116,9 @@ public static class StatePaths
     public const string RemoteSelected = "remote.selected";            // path of the selected entry, or null
     public const string RemoteSelectedName = "remote.selectedName";
     public const string RemoteSelectedIsDirectory = "remote.selectedIsDirectory";
+
+    public const string ConfigLoaded = "config.loaded";            // bool: the machine's settings have been read
+    public const string ConfigPending = "config.pending";          // number of edited settings not yet sent
 
     public const string PendantConnected = "pendant.connected";    // bool
     public const string PendantName = "pendant.name";              // e.g. "CYD"
