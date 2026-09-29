@@ -39,6 +39,7 @@ public static class Icons
         ["skip-forward"] = "M16 4 H19 V20 H16 Z M4 4 V20 L15 12 Z",
         ["step-back"] = "M17 5 V19 L7 12 Z",
         ["step-forward"] = "M7 5 V19 L17 12 Z",
+        ["upload"] = "M12 3 L18 10 H14 V16 H10 V10 H6 Z M4 18 H20 V21 H4 Z",
         ["save"] = "F0 M4 3 H17 L21 7 V21 H4 Z M7 5 V9 H15 V5 Z M8 13 H17 V19 H8 Z",
         ["zero"] = "F0 M12 3 A7 9 0 1 0 12 21 A7 9 0 1 0 12 3 Z M12 6 A4 6 0 1 1 12 18 A4 6 0 1 1 12 6 Z",
     };

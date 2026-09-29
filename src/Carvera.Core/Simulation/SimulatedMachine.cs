@@ -65,6 +65,11 @@ public sealed partial class SimulatedMachine : IMachineStream
 
     private void Receive(byte b)
     {
+        if (_upload is not null)
+        {
+            lock (_gate) UploadByte(b); // an upload is in progress: bytes are XMODEM packets, not commands
+            return;
+        }
         switch (b)
         {
             case (byte)'?': Reply(StatusReport()); return;
@@ -75,6 +80,7 @@ public sealed partial class SimulatedMachine : IMachineStream
                 Reply("ok");
                 return;
             case MachineCommands.StopContinuousJog: Reply("^Y"); return; // the firmware acknowledges a jog stop
+            case XmodemCancel: _input.Clear(); return; // stray upload-cancel bytes after a transfer ended
             case (byte)'\r': return;
             case (byte)'\n':
                 var line = _input.ToString().Trim();
@@ -94,7 +100,8 @@ public sealed partial class SimulatedMachine : IMachineStream
         lock (_gate)
         {
             if (upper == "DIAGNOSE") { Reply(DiagnoseReport()); return; }
-            if (upper == "VERSION") { Reply("version = 2.1.0c-sim"); return; }
+            if (upper == "VERSION") { Reply("version = 2.1.0c-sim"); Reply($"ftype = {FileType}"); return; }
+            if (upper.StartsWith("UPLOAD ", StringComparison.Ordinal)) { StartUpload(line[7..]); return; }
             if (upper == "MODEL") { Reply("model = CA1"); return; }
             if (upper == "GET WCS") { Reply($"[current WCS: {ResponseParser.WcsNames[_activeWcs]}]"); return; }
             if (upper is "ABORT") { _pendingMoves.Clear(); _held = false; _state = "Idle"; Reply("ok"); return; }

@@ -204,20 +204,34 @@ public static partial class ResponseParser
     /// <summary>Recognises "version = 1.0.2c", "model = CA1" style informational replies.</summary>
     public static bool TryParseInfo(string line, StateStore store)
     {
+        // One reply line can carry several of these, so each is looked for independently.
+        var any = false;
         var version = VersionRegex().Match(line);
         if (version.Success)
         {
             store.Set(StatePaths.FirmwareVersion, version.Groups[1].Value);
             store.Set(StatePaths.CommunityFirmware, version.Groups[2].Value.Contains('c'));
-            return true;
+            any = true;
         }
         var model = ModelRegex().Match(line);
         if (model.Success)
         {
             store.Set(StatePaths.MachineModelName, model.Groups[1].Value);
-            return true;
+            any = true;
         }
-        return false;
+        var fileType = FileTypeRegex().Match(line);
+        if (fileType.Success)
+        {
+            store.Set(StatePaths.MachineFileType, fileType.Groups[1].Value);
+            any = true;
+        }
+        var decompressed = DecompressedRegex().Match(line);
+        if (decompressed.Success && double.TryParse(decompressed.Groups[1].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var blocks))
+        {
+            store.Set(StatePaths.TransferDecompressed, (int)blocks);
+            any = true;
+        }
+        return any;
     }
 
     private static void SetActiveWcs(StateStore store, int index)
@@ -232,6 +246,10 @@ public static partial class ResponseParser
     private static partial Regex WcsEntryRegex();
     [GeneratedRegex(@"version = ([0-9]+\.[0-9]+\.[0-9]+)([a-zA-Z0-9\-_]*)")]
     private static partial Regex VersionRegex();
+    [GeneratedRegex(@"ftype = ([a-zA-Z0-9]+)")]
+    private static partial Regex FileTypeRegex();
+    [GeneratedRegex(@"decompart = ([0-9.]+)")]
+    private static partial Regex DecompressedRegex();
     [GeneratedRegex(@"model = ([a-zA-Z0-9]+)")]
     private static partial Regex ModelRegex();
 }

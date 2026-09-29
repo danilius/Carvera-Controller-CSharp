@@ -54,6 +54,8 @@ public static class StatePaths
 
     public const string JogStep = "jog.step";
     public const string JogFeed = "jog.feed";
+    /// <summary>"step" or "continuous": how a pendant jogs (a gamepad can switch modes).</summary>
+    public const string JogMode = "jog.mode";
 
     public const string LocalFile = "file.local";
     public const string LocalFileName = "file.localName";
@@ -72,6 +74,16 @@ public static class StatePaths
     public const string PreviewOperationName = "preview.operationName";
 
     public const string LayoutName = "app.layout";
+
+    /// <summary>File types the machine accepts for upload, from its "ftype = ..." reply (e.g. "lz").</summary>
+    public const string MachineFileType = "machine.fileType";
+
+    public const string TransferActive = "transfer.active";        // bool
+    public const string TransferName = "transfer.name";            // file being sent
+    public const string TransferPhase = "transfer.phase";          // Preparing | Uploading | Decompressing
+    public const string TransferPercent = "transfer.percent";      // 0-100
+    public const string TransferMessage = "transfer.message";      // last result, e.g. "Uploaded part.nc"
+    public const string TransferDecompressed = "transfer.decompressed"; // blocks the machine has unpacked so far
 
     public const string PendantConnected = "pendant.connected";    // bool
     public const string PendantName = "pendant.name";              // e.g. "CYD"

@@ -143,9 +143,7 @@ public sealed class CydPendant : IDisposable
 
     private void SetLinkState(bool connected)
     {
-        using var _ = _state.BeginBatch();
-        _state.Set(StatePaths.PendantConnected, connected);
-        _state.Set(StatePaths.PendantName, connected ? PendantDisplayName : null);
+        PendantStatus.Publish(_state, "cyd", connected, PendantDisplayName);
     }
 
     // ------------------------------------------------------------------ state helpers
@@ -156,20 +154,11 @@ public sealed class CydPendant : IDisposable
     private bool CommunityFirmware => _state.Get(StatePaths.CommunityFirmware, false);
     private PendantPolicy Policy => _options.Policy();
 
-    private bool SpindleOrLaserOn => _state.Get(StatePaths.SpindleCurrent, 0.0) > 0 || _state.Get(StatePaths.LaserState, false);
+    private PendantGate Gate => _pendantGate ??= new PendantGate(_state, _options.Policy);
+    private PendantGate? _pendantGate;
 
-    /// <summary>The machine state allows jogging (Python: <c>_machine_allows_jogging</c>).</summary>
-    private bool MachineAllowsJogging(bool continuing)
-    {
-        var policy = Policy;
-        var state = MachineState;
-        return (!Playing || state == "Pause")
-            && (state is "Idle" or "Pause" || (state == "Run" && (policy.AllowJoggingWhileRunning || (continuing && !Playing))))
-            && (!SpindleOrLaserOn || policy.AllowJoggingWhileSpindleOn);
-    }
-
-    private bool JoggingEnabled(bool continuing) => Policy.JoggingEnabled && MachineAllowsJogging(continuing);
-    private bool MachineActionsGate() => MachineAllowsJogging(false);
+    private bool JoggingEnabled(bool continuing) => Gate.JoggingEnabled(continuing);
+    private bool MachineActionsGate() => Gate.MachineAllowsJogging(false);
 
     private bool ManualMillingAllowed() =>
         _state.Get<string>(StatePaths.MachineModelName) == "C1" && Policy.JoggingEnabled && !Playing && MachineState is "Idle" or "Run";

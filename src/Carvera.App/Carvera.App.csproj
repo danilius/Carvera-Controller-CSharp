@@ -5,11 +5,13 @@
     <RootNamespace>Carvera.App</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Carvera.App.Tests" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="ppy.SDL2-CS" Version="1.0.82" />
     <ProjectReference Include="../Carvera.Core/Carvera.Core.csproj" />
     <ProjectReference Include="../Carvera.Layout/Carvera.Layout.csproj" />
     <PackageReference Include="Avalonia.Desktop" Version="12.1.2" />

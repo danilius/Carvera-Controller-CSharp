@@ -24,6 +24,14 @@ public sealed class Settings
     public int AutoConnectRetries { get; set; } = 5;
     public int AutoConnectIntervalSeconds { get; set; } = 5;
 
+    /// <summary>How the 3D view draws the toolpath: Auto (GPU for large programs), GPU, or CPU.</summary>
+    public string ViewerRenderer { get; set; } = "Auto";
+
+    // File upload to the machine.
+    public string UploadDirectory { get; set; } = "/sd/gcodes";
+    /// <summary>Auto (compress when the machine accepts .lz files), On or Off.</summary>
+    public string UploadCompression { get; set; } = "Auto";
+
     // CYD pendant. The host and port default to what the pendant firmware advertises.
     public bool CydEnabled { get; set; }
     public string CydHost { get; set; } = "cyd-pendant.local";
@@ -33,6 +41,16 @@ public sealed class Settings
     public bool PendantJoggingDefault { get; set; } = true;
     public bool AllowJoggingWhileRunning { get; set; }
     public bool AllowJoggingWhileSpindleOn { get; set; }
+
+    // Gamepad. The button mapping itself lives in gamepad-bindings.json next to settings.json.
+    public bool GamepadEnabled { get; set; }
+    public string GamepadPreset { get; set; } = "Xbox 360 / Xbox One";
+    public double GamepadDeadzone { get; set; } = 0.15;
+    public double GamepadMaxJogSpeed { get; set; } = 3000;
+    public bool GamepadInvertX { get; set; }
+    public bool GamepadInvertY { get; set; }
+    public bool GamepadInvertZ { get; set; }
+    public bool GamepadInvertA { get; set; }
 
     /// <summary>Pendant macros 1-10. Unnamed macros are not offered to the pendant.</summary>
     public List<MacroSetting> Macros { get; set; } = [];

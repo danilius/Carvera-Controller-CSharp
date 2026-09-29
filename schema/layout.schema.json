@@ -136,7 +136,8 @@
               "stop",
               "suspend",
               "unclampTool",
-              "unlock"
+              "unlock",
+              "uploadFile"
             ],
             "description": "Command to run."
           },
@@ -768,7 +769,8 @@
                   "stop",
                   "suspend",
                   "unclampTool",
-                  "unlock"
+                  "unlock",
+                  "uploadFile"
                 ],
                 "description": "Command to run (see the command reference)."
               },
@@ -1006,7 +1008,8 @@
                   "stop",
                   "suspend",
                   "unclampTool",
-                  "unlock"
+                  "unlock",
+                  "uploadFile"
                 ],
                 "description": "Command to run (see the command reference)."
               },
@@ -1118,7 +1121,8 @@
                   "stop",
                   "suspend",
                   "unclampTool",
-                  "unlock"
+                  "unlock",
+                  "uploadFile"
                 ],
                 "description": "Command to run (see the command reference)."
               },
@@ -1223,7 +1227,8 @@
                   "stop",
                   "suspend",
                   "unclampTool",
-                  "unlock"
+                  "unlock",
+                  "uploadFile"
                 ],
                 "description": "Command to run (see the command reference)."
               },
@@ -1432,7 +1437,8 @@
                   "stop",
                   "suspend",
                   "unclampTool",
-                  "unlock"
+                  "unlock",
+                  "uploadFile"
                 ],
                 "description": "Command to run (see the command reference)."
               },

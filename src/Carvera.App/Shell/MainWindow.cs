@@ -6,12 +6,14 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using Carvera.App.Layout;
 using Carvera.App.Services;
 using Carvera.Core;
 using Carvera.Core.Commands;
 using Carvera.Core.Connection;
 using Carvera.Core.Gcode;
+using Carvera.Core.Transfer;
 using Carvera.Core.State;
 using Carvera.Layout;
 
@@ -63,16 +65,24 @@ public sealed class MainWindow : Window, IAppHost
         if (ArgValue(args, "--connect") is { } connect)
             _ = _services.Commands.ExecuteAsync("connect", CommandArgs.Empty.With("kind", connect.Equals("simulator", StringComparison.OrdinalIgnoreCase) ? "simulator" : settings.ConnectionKind).With("address", connect));
 
-        _services.Pendants.Apply();
+        // "--check-gpu [report file]": draw a large test toolpath on the GPU for a few seconds, write what happened, and exit.
+        // Nothing is connected, and no settings are saved.
+        var gpuCheck = args.Any(a => a.Equals("--check-gpu", StringComparison.OrdinalIgnoreCase));
+        if (!gpuCheck) _services.Pendants.Apply();
         controller.ConnectionLost += lost =>
         {
             if (lost is not null) Dispatcher.UIThread.Post(() => StartReconnect(lost));
         };
 
         KeyDown += OnKeyDown;
-        Opened += (_, _) => StartAutoConnect(ArgValue(args, "--connect") is not null);
+        Opened += (_, _) =>
+        {
+            if (gpuCheck) _ = RunGpuCheckAsync(ArgValue(args, "--check-gpu") is { } file && !file.StartsWith("--") ? file : Path.Combine(Path.GetTempPath(), "carvera-gpu-check.txt"));
+            else StartAutoConnect(ArgValue(args, "--connect") is not null);
+        };
         Closing += (_, _) =>
         {
+            if (gpuCheck) return;
             CloseSettings();
             SaveWindowPlacement(settings);
             settings.Save();
@@ -89,6 +99,48 @@ public sealed class MainWindow : Window, IAppHost
 
     public AppServices Services => _services;
     public LayoutSession? Session => _session;
+
+    // ------------------------------------------------------------------ GPU self-check
+
+    private async Task RunGpuCheckAsync(string reportFile)
+    {
+        var report = new List<string> { $"Carvera Controller GPU check, {DateTime.Now:yyyy-MM-dd HH:mm:ss}" };
+        try
+        {
+            _services.Settings.ViewerRenderer = "GPU"; // in memory only; this mode never saves settings
+            var lines = new List<string> { "G21 G90" };
+            for (var i = 0; i < 120_000; i++)
+                lines.Add($"G1 X{(i % 300) * 0.4:0.###} Y{(i / 300) * 0.05:0.###} Z{-Math.Abs(Math.Sin(i * 0.01)) * 3:0.###} F800");
+            _services.SetProgram(GcodeProgram.Parse(lines, null));
+            var view = _session?.Root.GetVisualDescendants().OfType<Components.Viewer.ToolpathView>().FirstOrDefault();
+            if (view is null)
+            {
+                report.Add("This layout has no 3D view (toolpath).");
+            }
+            else
+            {
+                Topmost = true; // so a capture of the screen shows this window and not another one
+                Activate();
+                await Task.Delay(TimeSpan.FromSeconds(4));
+                var picture = Path.ChangeExtension(reportFile, ".png");
+                if (ScreenCapture.Save(this, picture)) report.Add($"Screen capture: {picture}");
+                // Scrub to the middle: the far half should fade, which shows the colour logic in the shader at work.
+                _services.SetPreviewSegment(60_000);
+                await Task.Delay(TimeSpan.FromSeconds(1.5));
+                var scrubbed = Path.ChangeExtension(reportFile, null) + "-scrubbed.png";
+                if (ScreenCapture.Save(this, scrubbed)) report.Add($"Screen capture after scrubbing: {scrubbed}");
+                report.Add(view.RendererReport());
+                report.Add(view.GpuActive ? "RESULT: the GPU renderer works." : "RESULT: the GPU renderer is not in use (see above).");
+            }
+        }
+        catch (Exception ex)
+        {
+            report.Add($"The check failed: {ex}");
+        }
+        try { File.WriteAllLines(reportFile, report); } catch (IOException) { }
+        foreach (var line in report) System.Console.WriteLine(line);
+        Close();
+    }
 
     // ------------------------------------------------------------------ window placement
 
@@ -576,6 +628,59 @@ public sealed class MainWindow : Window, IAppHost
             }
         });
         return Task.CompletedTask;
+    }
+
+    private CancellationTokenSource? _upload;
+
+    public async Task UploadFileAsync(string? path, string? remoteDirectory)
+    {
+        // Pressing Upload again while one is running cancels it.
+        if (_upload is { } running)
+        {
+            running.Cancel();
+            return;
+        }
+        var state = _services.State;
+        if (path is null)
+        {
+            path = _services.Program?.Path;
+            if (path is not null && state.Get(StatePaths.FileModified, false)
+                && !await Dispatcher.UIThread.InvokeAsync(() => Dialogs.ConfirmAsync(this, "The open file has changes that are not saved. Upload the saved version from disk?", "Upload")))
+                return;
+        }
+        if (path is null)
+        {
+            var files = await Dispatcher.UIThread.InvokeAsync(() => StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+            {
+                Title = "Upload G-code to the machine",
+                AllowMultiple = false,
+                FileTypeFilter =
+                [
+                    new FilePickerFileType("G-code") { Patterns = ["*.nc", "*.gcode", "*.gc", "*.ngc", "*.cnc", "*.tap", "*.txt"] },
+                    FilePickerFileTypes.All,
+                ],
+            }));
+            path = files.FirstOrDefault()?.TryGetLocalPath();
+            if (path is null) return;
+        }
+
+        var settings = _services.Settings;
+        var compress = settings.UploadCompression switch
+        {
+            "On" => true,
+            "Off" => false,
+            _ => UploadOptions.MachineAcceptsLz(state.Get<string>(StatePaths.MachineFileType)),
+        };
+        using var cts = new CancellationTokenSource();
+        _upload = cts;
+        try
+        {
+            await FileUploader.UploadAsync(_services.Controller, path, new UploadOptions(remoteDirectory ?? settings.UploadDirectory, compress), cts.Token);
+        }
+        finally
+        {
+            _upload = null;
+        }
     }
 
     public Task SelectOperationAsync(int operation)

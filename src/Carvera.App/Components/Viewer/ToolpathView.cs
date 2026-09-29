@@ -19,9 +19,19 @@ namespace Carvera.App.Components.Viewer;
 /// everything. Alt+left-drag stands in for the middle button, and the axis gizmo in the corner
 /// can be clicked or dragged.
 /// </summary>
-public sealed class ToolpathView : Control
+public sealed class ToolpathView : Panel
 {
     private enum Drag { None, Orbit, Pan, Zoom }
+
+    /// <summary>Programs with at least this many segments are drawn on the GPU when the renderer setting is "Auto".</summary>
+    public const int AutoGpuSegments = 50_000;
+
+    /// <summary>How long the GPU layer gets to draw its first frame before the view falls back to the CPU renderer.</summary>
+    public static TimeSpan GpuWait { get; set; } = TimeSpan.FromSeconds(3);
+
+    private GlPathLayer? _gl;
+    private OverlayLayer? _overlay;
+    private bool _gpuFailed;
 
     private const double OrbitDegreesPerPixel = 0.4;
     private const double GizmoRadius = 42;
@@ -72,17 +82,127 @@ public sealed class ToolpathView : Control
 
         ClipToBounds = true;
         Focusable = true;
+        Background = Brushes.Transparent; // a panel only receives the pointer where it has a background
+        _base = new BaseLayer(this);
+        Children.Add(_base);
 
         void OnProgram()
         {
             Load(ctx.Services.Program);
-            InvalidateVisual();
+            Redraw();
         }
         ctx.Services.ProgramChanged += OnProgram;
         ctx.Track(new Detach(() => ctx.Services.ProgramChanged -= OnProgram));
         ctx.Watch([StatePaths.AxisWork("x"), StatePaths.AxisWork("y"), StatePaths.AxisWork("z"), StatePaths.Connected, StatePaths.JobLines, StatePaths.JobPlaying,
-            StatePaths.PreviewSegment, StatePaths.PreviewOperation], InvalidateVisual);
+            StatePaths.PreviewSegment, StatePaths.PreviewOperation], Redraw);
         Load(ctx.Services.Program);
+    }
+
+    /// <summary>True while the toolpath is drawn by the GPU layer.</summary>
+    public bool GpuActive => _gl is not null;
+
+    /// <summary>A line for diagnostics: which renderer is in use and, for the GPU, what OpenGL reported.</summary>
+    public string RendererReport() => _gl is { } gl
+        ? $"GPU renderer active: {gl.ContextDescription}, {gl.Frames} frames drawn, {_starts.Length:N0} segments, last OpenGL error 0x{gl.LastGlError:X}"
+        : GpuFailure is { } failure ? $"CPU renderer (GPU failed: {failure})" : "CPU renderer";
+
+    /// <summary>Why the GPU renderer was given up on, or null.</summary>
+    public string? GpuFailure { get; private set; }
+
+    private void Redraw()
+    {
+        _base.InvalidateVisual();
+        _gl?.RequestNextFrameRendering();
+        _overlay?.InvalidateVisual();
+    }
+
+    private readonly BaseLayer _base;
+
+    /// <summary>A panel cannot draw itself, so its own drawing lives in a layer beneath the GPU and overlay layers.</summary>
+    private sealed class BaseLayer : Control
+    {
+        private readonly ToolpathView _owner;
+
+        public BaseLayer(ToolpathView owner)
+        {
+            _owner = owner;
+            IsHitTestVisible = false;
+        }
+
+        public override void Render(DrawingContext context) => _owner.DrawBase(context);
+    }
+
+    private bool WantGpu()
+    {
+        if (_gpuFailed || _ctx.Services.Settings.ViewerRenderer.Equals("CPU", StringComparison.OrdinalIgnoreCase)) return false;
+        if (_ctx.Services.Settings.ViewerRenderer.Equals("GPU", StringComparison.OrdinalIgnoreCase)) return true;
+        return _starts.Length >= AutoGpuSegments;
+    }
+
+    /// <summary>Adds or removes the GPU layers to match the renderer setting and the size of the program.</summary>
+    private void UpdateRenderer()
+    {
+        var want = WantGpu();
+        if (want && _gl is null)
+        {
+            _gl = new GlPathLayer(this, Camera, CurrentStyle, GpuFailed);
+            _overlay = new OverlayLayer(this);
+            Children.Add(_gl);
+            Children.Add(_overlay);
+            _gl.SetData(GlPathLayer.Build(_starts, _ends, _operations, _lines, _rapid));
+            // Without a usable OpenGL context (a remote desktop, a headless run) the layer never draws and never says so.
+            var layer = _gl;
+            Avalonia.Threading.DispatcherTimer.RunOnce(() =>
+            {
+                if (_gl == layer && !layer.HasRendered) GpuFailed("no OpenGL context was available");
+            }, GpuWait);
+        }
+        else if (!want && _gl is not null)
+        {
+            Children.Remove(_gl);
+            if (_overlay is not null) Children.Remove(_overlay);
+            _gl = null;
+            _overlay = null;
+        }
+    }
+
+    private void GpuFailed(string message)
+    {
+        // Called from the render thread: switch back to the CPU renderer on the UI thread.
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            if (_gpuFailed) return;
+            _gpuFailed = true;
+            GpuFailure = message;
+            _ctx.Services.Console.Warning($"3D view: the GPU renderer could not be used ({message}). Using the CPU renderer instead.");
+            UpdateRenderer();
+            Redraw();
+        });
+    }
+
+    private PathStyle CurrentStyle()
+    {
+        var operationCount = _colorByOperation ? Math.Max(1, _program?.Operations.Count ?? 1) : 1;
+        var doneLine = _ctx.State.Get(StatePaths.JobPlaying, false) ? _ctx.State.Get(StatePaths.JobLines, -1) : -1;
+        static Color Of(IBrush brush, byte? alpha = null) => brush is ISolidColorBrush s ? (alpha is { } a ? Color.FromArgb(a, s.Color.R, s.Color.G, s.Color.B) : s.Color) : Colors.Gray;
+        return new PathStyle(
+            _ctx.State.Get(StatePaths.PreviewSegment, -1), _ctx.State.Get(StatePaths.PreviewOperation, -1), doneLine, _colorByOperation, operationCount,
+            Color.FromArgb(70, 100, 116, 139), Of(_rapidBrush), Of(_pathBrush), Of(_doneBrush),
+            Enumerable.Range(0, Math.Min(operationCount, 64)).Select(i => _ctx.Theme.OperationColor(i)).ToList());
+    }
+
+    /// <summary>Everything drawn over the path: the scrub marker, the tool, the gizmo and the captions.</summary>
+    private sealed class OverlayLayer : Control
+    {
+        private readonly ToolpathView _owner;
+
+        public OverlayLayer(ToolpathView owner)
+        {
+            _owner = owner;
+            IsHitTestVisible = false;
+        }
+
+        public override void Render(DrawingContext context) => _owner.DrawOverlay(context);
     }
 
     public OrbitCamera Camera { get; } = new();
@@ -106,6 +226,8 @@ public sealed class ToolpathView : Control
             _operations[i] = program!.OperationOfLine(s.Line);
         }
         _framed = false;
+        _gl?.SetData(GlPathLayer.Build(_starts, _ends, _operations, _lines, _rapid));
+        UpdateRenderer();
     }
 
     private (Vector3 Min, Vector3 Max) SceneBounds()
@@ -119,7 +241,7 @@ public sealed class ToolpathView : Control
     {
         var (min, max) = SceneBounds();
         Camera.Frame(min, max);
-        InvalidateVisual();
+        Redraw();
     }
 
     private Vector3 ToolPosition => new(
@@ -129,7 +251,8 @@ public sealed class ToolpathView : Control
 
     // ---------------------------------------------------------------- rendering
 
-    public override void Render(DrawingContext context)
+    /// <summary>The bottom layer: the grid, and in CPU mode the path and everything else too.</summary>
+    private void DrawBase(DrawingContext context)
     {
         Camera.Viewport = Bounds.Size;
         if (!_framed && Bounds.Width > 0)
@@ -138,12 +261,22 @@ public sealed class ToolpathView : Control
             var (min, max) = SceneBounds();
             Camera.Frame(min, max);
         }
+        if (WantGpu() != (_gl is not null)) UpdateRenderer(); // the renderer setting changed
         context.FillRectangle(Brushes.Transparent, new Rect(Bounds.Size));
         if (_showGrid) DrawGrid(context);
+        if (_gl is not null) return; // the GPU layer draws the path; the overlay layer draws the rest
         DrawPaths(context);
+        DrawOverlay(context);
+    }
+
+    /// <summary>The scrub marker, the tool, the gizmo and the captions: drawn over the path by whichever renderer is active.</summary>
+    private void DrawOverlay(DrawingContext context)
+    {
+        Camera.Viewport = Bounds.Size;
+        DrawScrubMarker(context);
         if (_ctx.State.Get(StatePaths.Connected, false)) DrawTool(context);
         if (_showGizmo) DrawGizmo(context);
-        DrawText(context, Camera.Description, new Point(10, 8), _ctx.Theme.FontSize - 1);
+        DrawText(context, Camera.Description + (_gl is not null ? " · GPU" : ""), new Point(10, 8), _ctx.Theme.FontSize - 1);
         var caption = _program is null
             ? "No file loaded. Middle-drag orbits, Shift pans, wheel zooms, numpad 1/3/7 align, Home frames."
             : $"{System.IO.Path.GetFileName(_program.Path)}  ·  {_program.Max.X - _program.Min.X:0.#} × {_program.Max.Y - _program.Min.Y:0.#} × {_program.Max.Z - _program.Min.Z:0.#} mm";
@@ -236,7 +369,11 @@ public sealed class ToolpathView : Control
         for (var i = 1; i < feeds.Length; i++)
             context.DrawGeometry(null, new Pen(new SolidColorBrush(_ctx.Theme.OperationColor(i - 1)), 1.5), feeds[i]);
         context.DrawGeometry(null, new Pen(_doneBrush, 2), done);
+    }
 
+    private void DrawScrubMarker(DrawingContext context)
+    {
+        var scrub = _ctx.State.Get(StatePaths.PreviewSegment, -1);
         if (scrub >= 0 && scrub < _ends.Length)
         {
             // Preview tool at the scrub position: hollow, in the colour of its operation.
@@ -336,7 +473,7 @@ public sealed class ToolpathView : Control
         {
             if (Distance(point.Position, ProjectionButton) <= 14) Camera.ToggleProjection();
             else FrameAll();
-            InvalidateVisual();
+            Redraw();
             e.Handled = true;
             return;
         }
@@ -366,10 +503,10 @@ public sealed class ToolpathView : Control
                 Camera.Zoom(Math.Exp(dy * 0.01));
                 break;
             default:
-                if (_showGizmo) InvalidateVisual(); // gizmo hover highlight
+                if (_showGizmo) Redraw(); // gizmo hover highlight
                 return;
         }
-        InvalidateVisual();
+        Redraw();
     }
 
     protected override void OnPointerReleased(PointerReleasedEventArgs e)
@@ -384,7 +521,7 @@ public sealed class ToolpathView : Control
         _drag = Drag.None;
         _gizmoPress = false;
         e.Pointer.Capture(null);
-        InvalidateVisual();
+        Redraw();
     }
 
     protected override void OnPointerWheelChanged(PointerWheelEventArgs e)
@@ -392,7 +529,7 @@ public sealed class ToolpathView : Control
         base.OnPointerWheelChanged(e);
         Camera.Zoom(Math.Pow(1 / 1.2, e.Delta.Y));
         e.Handled = true;
-        InvalidateVisual();
+        Redraw();
     }
 
     protected override void OnKeyDown(KeyEventArgs e)
@@ -419,7 +556,7 @@ public sealed class ToolpathView : Control
             default: return;
         }
         e.Handled = true;
-        InvalidateVisual();
+        Redraw();
     }
 
     private sealed class Detach(Action action) : IDisposable

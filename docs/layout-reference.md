@@ -487,6 +487,12 @@ States for `visuals`: `normal`, `hover`, `disabled`.
 | `clearConsole` |  | Clear console.  Works without a machine connection. |
 | `sendGcode` | `line` (required): The command to send | Send G-code.  |
 
+### Files
+
+| Command | Arguments | Description |
+|---|---|---|
+| `uploadFile` | `path`: Local file; defaults to the open file, or asks<br>`remoteDirectory`: Folder on the machine; defaults to the upload folder in the settings | Upload file. Sends the open G-code file (or 'path') to the machine over the connection; press it again during an upload to cancel. Only available while the machine is idle. |
+
 ### Motion
 
 | Command | Arguments | Description |

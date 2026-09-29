@@ -101,5 +101,7 @@ public static class MachineCommands
         value.Replace('\\', '/').Replace(' ', '\x01').Replace('?', '\x02').Replace('&', '\x03').Replace('!', '\x04').Replace('~', '\x05');
 
     public static string Play(string remotePath) => $"play {EscapeArgument(remotePath)}\n";
+    /// <summary>Starts an XMODEM upload to <paramref name="remotePath"/> (the machine then waits for the file).</summary>
+    public static string Upload(string remotePath) => $"upload {EscapeArgument(remotePath)}\n";
     public static string ListDirectory(string remotePath) => $"ls -e -s {EscapeArgument(remotePath)}\n";
 }
