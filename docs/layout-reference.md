@@ -106,6 +106,7 @@ States for `visuals`: `normal`, `hover`, `disabled`.
 |---|---|---|
 | `placement` | enum: `top`, `bottom`, `left`, `right` | Where the tab headers sit. |
 | `selected` | number | Initially selected tab (0-based). |
+| `prominence` | enum: `normal`, `primary` | normal, or primary for large page-switching headers with a filled selected tab. |
 
 ### `scroll`
 
@@ -265,6 +266,7 @@ States for `visuals`: `normal`, `hover`, `pressed`, `disabled`, `on`, `off`.
 | `args` | args | Arguments for the command. |
 | `onArgs` | args | Arguments used when turning on. |
 | `offArgs` | args | Arguments used when turning off. |
+| `look` | enum: `button`, `switch` | button (default) or switch: a sliding on/off switch with the caption beside it. |
 
 ### `choice`
 
@@ -405,6 +407,8 @@ States for `visuals`: `normal`, `hover`, `disabled`.
 | `showGrid` | bool | Draw the XY grid at Z0 (default true). |
 | `gridSize` | number | Grid pitch in mm (default 10). |
 | `showGizmo` | bool | Show the navigation gizmo (default true). |
+| `showBed` | bool | Draw the machine bed picture flat under the path (default true; the setting view.bedImage turns all bed pictures off). |
+| `bedImage` | string | Picture of the bed, from the layout's folder; default: the one that fits the machine model. |
 | `toolLength` | number | Length of the drawn tool in mm (default 25). |
 | `pathColor` | color | Feed moves. |
 | `rapidColor` | color | Rapid moves. |
@@ -456,6 +460,42 @@ The files and folders on the machine's SD card: the folder path, then one row pe
 
 States for `visuals`: `normal`, `hover`, `disabled`.
 
+### `machineConfig`
+
+The machine's own settings (its config.txt): one field per setting, grouped, with the explanation as a tooltip. Read them from the machine with configLoad, edit, then send with configApply; the machine needs a reset afterwards. Edited fields are highlighted. Also configDiscard, configRestore and configSaveDefault.
+
+States for `visuals`: `normal`, `hover`, `disabled`.
+
+| Property | Kind | Description |
+|---|---|---|
+| `section` | enum: `Basic`, `Advanced` | Show only the Basic or the Advanced settings (default: both). |
+
+### `bedView`
+
+Plan view of the machine bed for job setup: the bed picture (Carvera or Carvera Air; hidden when the bed picture is switched off), the anchors, the work origin, the open program's outline and path origin, the Z probe position, the auto-level points and the tool. Drawn from the state, so it follows the machine's offsets and rotation.
+
+States for `visuals`: `normal`, `hover`, `disabled`.
+
+| Property | Kind | Description |
+|---|---|---|
+| `bedImage` | string | Picture of the bed, from the layout's folder; default: the one that fits the machine model. |
+| `showAnchors` | bool | Mark the anchors (default true). |
+| `showPath` | bool | Draw the open program's outline and path origin (default true). |
+| `showZProbe` | bool | Mark the Z probe position while the Z probe step is on (default true). |
+| `showLeveling` | bool | Show the auto-level points while the auto-level step is on (default true). |
+| `showTool` | bool | Mark the tool position while connected (default true). |
+
+### `probePanel`
+
+Probing: pick a family (bore, boss, corners, single axis, angle, probe tip, calibration, 4th axis), fill in the parameters, and press an operation to run it on the machine (asks first). The values are remembered. The command that would be sent is shown live.
+
+States for `visuals`: `normal`, `hover`, `disabled`.
+
+| Property | Kind | Description |
+|---|---|---|
+| `family` | enum: `singleAxis`, `outsideCorner`, `insideCorner`, `bore`, `boss`, `angle`, `probeTip`, `calibration`, `fourthAxis` | Show only this family (no picker). Default: all, with a picker. |
+| `showDescriptions` | bool | Show each parameter's explanation under its field (default false; it is always in the tooltip). |
+
 ### `layoutSelector`
 
 Switches between the available layout files.
@@ -499,10 +539,32 @@ States for `visuals`: `normal`, `hover`, `disabled`.
 |---|---|---|
 | `uploadFile` | `path`: Local file; defaults to the open file, or asks<br>`remoteDirectory`: Folder on the machine; defaults to the upload folder in the settings | Upload file. Sends the open G-code file (or 'path') to the machine over the connection; press it again during an upload to cancel. Only available while the machine is idle. |
 
+### Job setup
+
+| Command | Arguments | Description |
+|---|---|---|
+| `jobLevelSetup` | `text`: For example "3 3 5" | Auto-level grid.... Sets the auto-level grid. Asks for 'text' ("3 3 5" or "3 3 5 2 2 2 2") when not given. Works without a machine connection. |
+| `jobOffset` | `text`: For example "10 5" | Origin offset.... Changes the offset from the chosen anchor and, for an anchor, sets the work origin again. Asks for 'text' ("10 5") when not given. Works without a machine connection. |
+| `jobOrigin` | `anchor` (required): anchor1, anchor2 or probe<br>`x`: X offset from the anchor, mm<br>`y`: Y offset from the anchor, mm<br>`confirmed`: Skip the question | Choose work origin. Chooses where the work origin comes from. Anchor 1 and anchor 2 set it at once (after asking; the machine does not move) from the anchor position plus the offset; 'probe' only selects the probed-position way, which is then measured with xyzProbe. Works without a machine connection. |
+| `jobRun` | `confirmed`: Skip the question<br>`buffer`: Queue behind the running program | Run job preparation. Runs the chosen preparation steps (margin, Z probe, auto-level, go to the path origin) in the order the Python controller does, after asking. |
+| `jobToggle` | `name` (required): margin, zprobe, leveling or gotoOrigin<br>`on`: Omit to toggle | Toggle a job step. Turns a preparation step of jobRun on or off (toggles without 'on'). Works without a machine connection. |
+| `setBedImage` | `on`: Omit to toggle | Show the bed picture. Shows or hides the machine bed picture under the toolpath and on the job setup page (toggles without 'on'). Works without a machine connection. |
+
+### Machine configuration
+
+| Command | Arguments | Description |
+|---|---|---|
+| `configApply` |  | Send changes. Sends the edited settings to the machine (config-set sd). They take effect after a reset. |
+| `configDiscard` |  | Discard changes. Forgets the edits that have not been sent. |
+| `configLoad` |  | Read machine settings. Reads /sd/config.txt from the machine and lists its settings. Only while the machine is idle. |
+| `configRestore` | `confirmed`: Skip the question | Restore default settings. Restores the machine's settings from its saved defaults (config-restore), after asking. |
+| `configSaveDefault` | `confirmed`: Skip the question | Save settings as default. Saves the machine's current settings as its defaults (config-default), after asking. |
+
 ### Machine files
 
 | Command | Arguments | Description |
 |---|---|---|
+| `configBackup` | `folder`: Where to put the files; asks when omitted | Back up configuration. Copies the machine's configuration files (config.txt, config.default, custom_tool_slots.txt, the compensation grids) from the SD card into a folder on your computer. Only available while the machine is idle. Press it again during the backup to cancel. |
 | `remoteDelete` | `confirmed`: true to skip the question | Delete. Deletes the selected file, or an empty folder, from the machine after asking to confirm. |
 | `remoteDownload` | `path`: Where to save it; asks when omitted | Download. Saves the selected file from the machine to your computer (asks where). Press it again during a transfer to cancel. Only available while the machine is idle. |
 | `remoteMkdir` | `name`: Folder name | New folder. Creates a folder in the folder shown; asks for the name unless 'name' is given. |
@@ -514,6 +576,7 @@ States for `visuals`: `normal`, `hover`, `disabled`.
 | `remoteUp` |  | Up one folder. Shows the folder above the current one (never above /sd). |
 | `remoteUpload` |  | Upload here. Uploads the open G-code file (or asks for one) into the folder the file browser shows. Press it again during an upload to cancel. |
 | `remoteView` |  | View in 3D. Downloads the selected file to a temporary folder and opens it in the G-code view, without keeping a copy. Only available while the machine is idle. |
+| `updateFirmware` | `path`: The firmware file; asks when omitted<br>`confirmed`: Skip the questions | Update firmware. Uploads a firmware file (.bin) to /sd/firmware.bin, after asking, then offers to reset the machine so it installs it. Only available while the machine is idle. Press it again during the upload to cancel. |
 
 ### Motion
 
@@ -531,8 +594,15 @@ States for `visuals`: `normal`, `hover`, `disabled`.
 | `gotoWorkHome` |  | Go to work XY zero.  |
 | `gotoWorkOrigin` |  | Go to work origin.  |
 | `home` |  | Home. Homes all axes ($H). |
-| `jog` | `axis` (required): e.g. X, Z-, X+Y+<br>`direction`: +1 or -1 (multiplies the signs in 'axis')<br>`distance`: Overrides the jog step<br>`feed`: mm/min; defaults to jog.feed | Jog. Relative jog by the current jog step (or 'distance'). 'axis' is X, Y, Z or A with an optional sign, and may combine axes: "X+Y-". |
+| `jog` | `axis` (required): e.g. X, Z-, X+Y+<br>`direction`: +1 or -1 (multiplies the signs in 'axis')<br>`distance`: Overrides the jog step<br>`feed`: mm/min; defaults to jog.feed<br>`screen`: The axis is the direction on screen: Y is reversed when jog.invertY is set | Jog. Relative jog by the current jog step (or 'distance'). 'axis' is X, Y, Z or A with an optional sign, and may combine axes: "X+Y-". With 'screen', Y follows the Reverse Y setting. |
+| `jogKey` | `axis` (required): e.g. X, Y-, Z | Jog with a key. Jogs from a key press, if keyboard jogging is on: one step in step mode, or continuously until the key is released (jogKeyStop) in continuous mode. Y follows the Reverse Y setting. |
+| `jogKeyStop` |  | Stop jogging with a key. Stops the continuous jog started by jogKey when the key is released. Does nothing in step mode. |
+| `jogStart` | `axis` (required): e.g. X, Y-, Z<br>`feed`: mm/min; defaults to jog.feed (Z is capped)<br>`screen`: The axis is the direction on screen: Y is reversed when jog.invertY is set | Jog while held. Starts a continuous jog that runs until jogStop. One axis; a jog that is already running is left alone. With 'screen', Y follows the Reverse Y setting. |
+| `jogStop` |  | Stop jogging. Stops a continuous jog. |
 | `setJogFeed` | `value` (required): mm/min | Set jog feed.  Works without a machine connection. |
+| `setJogInvertY` | `on`: Omit to toggle | Reverse Y jogging. Reverses the Y direction of the jog pad and jog keys (toggles without 'on'). Works without a machine connection. |
+| `setJogKeyboard` | `on`: Omit to toggle | Keyboard jogging. Turns the jog keys on or off (toggles without 'on'). Works without a machine connection. |
+| `setJogMode` | `mode`: step or continuous<br>`value`: Same as mode, for choice elements | Set jog mode. Chooses whether jog buttons and keys move one step per click or continuously while held (toggles without 'mode'). Works without a machine connection. |
 | `setJogStep` | `value` (required): Step in mm | Set jog step.  Works without a machine connection. |
 
 ### Overrides
@@ -542,6 +612,21 @@ States for `visuals`: `normal`, `hover`, `disabled`.
 | `feedOverride` | `value`: Percent<br>`delta`: Change in percent | Feed override.  |
 | `laserScale` | `value`: Percent<br>`delta`: Change in percent | Laser scale.  |
 | `spindleOverride` | `value`: Percent<br>`delta`: Change in percent | Spindle override.  |
+
+### Probing
+
+| Command | Arguments | Description |
+|---|---|---|
+| `autoRun` | `margin`: Trace the program's outline<br>`zProbe`: Probe Z at the offset below<br>`zProbeAbsolute`: Probe at the fixed anchor position (4th-axis setups)<br>`leveling`: Auto-level over the program's area<br>`gotoOrigin`: Go to the path origin afterwards<br>`zProbeOffsetX`: Z probe X offset from the path origin (default: from the Z probe setting)<br>`zProbeOffsetY`: Z probe Y offset from the path origin (default: from the Z probe setting)<br>`pointsX`: Auto-level points along X (default 3)<br>`pointsY`: Auto-level points along Y (default 3)<br>`height`: Auto-level height (default 5)<br>`levelOffsets`: x-, x+, y-, y+ margins of the levelled area, e.g. "0,0,0,0"<br>`tool`: Tool to change to before going to the origin<br>`buffer`: Queue behind the running program<br>`confirmed`: Skip the question | Prepare workpiece. Draws the margin, probes Z, auto-levels and/or goes to the origin, over the open program's extents (M495). |
+| `gotoPathOrigin` |  | Go to path origin. Rapid move to the lower-left corner of the open program (M496.5). |
+| `probe` | `family` (required): singleAxis, outsideCorner, insideCorner, bore, boss, angle, probeTip, calibration or fourthAxis<br>`operation` (required): The operation within the family, e.g. CenterBore<br>`confirmed`: Skip the question | Probe. Runs a probing operation of the community firmware. 'family' and 'operation' pick it (see the probePanel), and any parameter code (X, Y, D, ...) sets a value. |
+| `ringGaugeApplyTip` | `value`: On or off | Ring gauge: include tip diameter. Turns the inclusion of the probe tip diameter in the ring-gauge probe on or off (toggles without 'value'). Works without a machine connection. |
+| `ringGaugeBack` |  | Ring gauge: previous step. Goes back one step of the drift check. Works without a machine connection. |
+| `ringGaugePersist` | `value`: On or off | Ring gauge: keep the correction. Turns the stored correction on or off; when on, XY-zeroing probes apply it (toggles without 'value'). Works without a machine connection. |
+| `ringGaugeProbe` | `confirmed`: Skip the question | Probe ring gauge. Measures the ring gauge for the current step of the drift check (asks first, machine must be idle); when all three steps are done it restarts. Works without a machine connection. |
+| `ringGaugeReset` |  | Ring gauge: restart. Clears the drift check's measurements. Works without a machine connection. |
+| `xyzProbe` | `height`: Probe height in mm (default 9)<br>`diameter`: Tool or probe diameter in mm (default 3.175) | XYZ probe. Probes the workpiece in X, Y and Z at the current position (M495.3). |
+| `zProbeSetup` | `value`: For example "work 10 5" or "path -3 2" | Z probe position. Sets where the Z probe is: 'work' or 'path' origin, then the X and Y offset in mm. Asks when no 'value' is given. Works without a machine connection. |
 
 ### Run
 
@@ -578,6 +663,13 @@ States for `visuals`: `normal`, `hover`, `disabled`.
 | `changeTool` | `tool` (required): Tool number (0 = empty, 8888 = probe) | Change tool.  |
 | `clampTool` |  | Clamp collet.  |
 | `setTool` | `tool` (required): Tool number | Set current tool.  |
+| `toolCalibrate` |  | Calibrate tool length. Measures the current tool on the tool sensor, after asking. |
+| `toolChange` | `tool` (required): 0 = probe, 999990 = 3D probe, 1-6<br>`confirmed`: Skip the question | Change tool. Changes to the given tool (0 probe, 999990 3D probe, 1-6) after asking. Only while the machine is idle. |
+| `toolChoose` |  | Change to tool.... Asks for a tool number, then changes to it. |
+| `toolClamp` |  | Clamp collet. Closes the collet, after asking. |
+| `toolDrop` |  | Drop tool. Returns the tool in the spindle to the magazine, after asking. |
+| `toolSetNumber` | `tool`: Tool number | Set current tool number. Tells the machine which tool is in the spindle without moving anything; asks for the number unless 'tool' is given. |
+| `toolUnclamp` |  | Release collet. Opens the collet, after asking. |
 | `unclampTool` |  | Release collet.  |
 
 ### Work offsets
@@ -586,7 +678,11 @@ States for `visuals`: `normal`, `hover`, `disabled`.
 |---|---|---|
 | `clearAutoLevel` |  | Clear auto-levelling.  |
 | `clearRotation` |  | Clear WCS rotation.  |
+| `pairProbe` | `confirmed`: Skip the question | Pair wireless probe. Starts pairing with the wireless workpiece probe (M471), after asking. |
 | `selectWcs` | `index`: 0 = G54 ... 5 = G59<br>`name`: G54 ... G59 | Select work coordinates.  |
+| `setRotation` | `angle`: Degrees | Set WCS rotation. Rotates the active work coordinate system; asks for the angle unless 'angle' is given. clearRotation removes it. |
+| `setWorkOrigin` | `text`: For example "anchor1 10 5" | Set work origin.... Sets the work origin to an offset from an anchor (anchor1, anchor2, rotation centre) or from the current position (G10 L2 P0). Asks for 'text' when not given. |
 | `setWorkPosition` | `x`: X<br>`y`: Y<br>`z`: Z<br>`a`: A | Set work position.  |
+| `setWorkPositionPrompt` | `text`: e.g. X10 Y20 | Set work position.... Makes the current position read the typed-in coordinates in the active work coordinate system (G10 L20). |
 | `setWorkZero` | `axes`: Any of X, Y, Z, A (default XYZ) | Set work zero. Makes the current position zero in the active work coordinate system. |
 

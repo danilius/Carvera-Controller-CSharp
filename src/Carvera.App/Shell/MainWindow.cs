@@ -29,9 +29,13 @@ public sealed class MainWindow : Window, IAppHost
     private readonly StackPanel _banners = new() { Spacing = 0 };
     private readonly Border _layoutHost = new();
     private LayoutSession? _session;
-    private FileSystemWatcher? _watcher;
+    private readonly List<FileSystemWatcher> _watchers = [];
     private DispatcherTimer? _reloadTimer;
     private string? _currentLayoutPath;
+    private string? _currentLayoutName;
+    private string? _loadedText;
+    private bool _assetsChanged;
+    private EditorLink? _editorLink;
 
     public MainWindow(string[] args)
     {
@@ -58,7 +62,7 @@ public sealed class MainWindow : Window, IAppHost
         layoutArea.Children.Add(_banners);
         layoutArea.Children.Add(_layoutHost);
         _settingsHost.IsVisible = false;
-        Content = new Panel { Children = { layoutArea, _settingsHost } };
+        Content = new Panel { Children = { layoutArea, _settingsHost, CreateEditorOverlay() } };
 
         var requested = ArgValue(args, "--layout") ?? settings.Layout;
         LoadLayout(requested, initial: true);
@@ -74,7 +78,10 @@ public sealed class MainWindow : Window, IAppHost
             if (lost is not null) Dispatcher.UIThread.Post(() => StartReconnect(lost));
         };
 
+        StartEditorLink(args);
         KeyDown += OnKeyDown;
+        KeyUp += OnKeyUp;
+        Deactivated += (_, _) => ReleaseHeldKeys();
         Opened += (_, _) =>
         {
             if (gpuCheck) _ = RunGpuCheckAsync(ArgValue(args, "--check-gpu") is { } file && !file.StartsWith("--") ? file : Path.Combine(Path.GetTempPath(), "carvera-gpu-check.txt"));
@@ -90,7 +97,8 @@ public sealed class MainWindow : Window, IAppHost
         Closed += async (_, _) =>
         {
             _autoConnect?.Cancel();
-            _watcher?.Dispose();
+            foreach (var watcher in _watchers) watcher.Dispose();
+            _editorLink?.Dispose();
             _session?.Dispose();
             await controller.DisposeAsync();
             _services.Dispose();
@@ -111,6 +119,13 @@ public sealed class MainWindow : Window, IAppHost
             var lines = new List<string> { "G21 G90" };
             for (var i = 0; i < 120_000; i++)
                 lines.Add($"G1 X{(i % 300) * 0.4:0.###} Y{(i / 300) * 0.05:0.###} Z{-Math.Abs(Math.Sin(i * 0.01)) * 3:0.###} F800");
+            // A sparse part with rapids and long feed moves beside the dense block, so line width and dashes can be judged in the capture.
+            for (var k = 0; k < 9; k++)
+            {
+                lines.Add($"G0 X{k * 14} Y45 Z5");
+                lines.Add($"G1 X{k * 14 + 9} Y{55 + 12 * (k % 3)} Z-2 F600");
+                lines.Add($"G1 X{k * 14 + 3} Y95 Z-2");
+            }
             _services.SetProgram(GcodeProgram.Parse(lines, null));
             var view = _session?.Root.GetVisualDescendants().OfType<Components.Viewer.ToolpathView>().FirstOrDefault();
             if (view is null)
@@ -338,6 +353,7 @@ public sealed class MainWindow : Window, IAppHost
             result = new LayoutLoadResult(null, [new LayoutDiagnostic(DiagnosticSeverity.Error, nameOrPath, $"No layout named '{nameOrPath}' in {string.Join(" or ", _services.Layouts.Folders)}.")]);
         }
         else result = LayoutLoader.LoadFile(path, new LayoutValidator(_services.Commands));
+        var text = path is not null ? TryRead(path) : null;
 
         if (!result.Success)
         {
@@ -347,18 +363,28 @@ public sealed class MainWindow : Window, IAppHost
             result = LayoutLoader.Load(ReadEmbeddedDefault(), "desktop", Path.Combine(AppContext.BaseDirectory, "layouts"), null, new LayoutValidator(_services.Commands));
             if (result.Document is null) return false;
             path = null;
+            text = null;
         }
         else ClearBanner("errors");
 
         Apply(result.Document!, result.Diagnostics);
         _currentLayoutPath = path;
+        _currentLayoutName = path is null ? null : Path.GetFileNameWithoutExtension(path);
+        _loadedText = text;
         Watch(path);
-        if (path is not null)
+        if (path is not null && !string.Equals(_services.Settings.Layout, Path.GetFileNameWithoutExtension(path), StringComparison.Ordinal))
         {
             _services.Settings.Layout = Path.GetFileNameWithoutExtension(path);
             _services.Settings.Save();
         }
+        AnnounceLayout();
         return true;
+    }
+
+    private static string? TryRead(string path)
+    {
+        try { return File.ReadAllText(path); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return null; }
     }
 
     private static string ReadEmbeddedDefault()
@@ -371,9 +397,17 @@ public sealed class MainWindow : Window, IAppHost
     private void Apply(LayoutDocument document, IReadOnlyList<LayoutDiagnostic> diagnostics)
     {
         _services.State.Set(StatePaths.LayoutName, document.SourcePath is null ? document.Name : Path.GetFileNameWithoutExtension(document.SourcePath));
+        // A reload of the same layout (live editing) keeps the tab, scroll position, splitters and collapsed panels the user had.
+        var viewState = _session is not null && document.SourcePath is not null && string.Equals(_session.Document.SourcePath, document.SourcePath, StringComparison.OrdinalIgnoreCase)
+            ? ViewState.Capture(_session) : null;
         _session?.Dispose();
         _session = new LayoutSession(document, _services);
         _layoutHost.Child = _session.Root;
+        if (viewState is not null)
+        {
+            _session.Root.UpdateLayout();
+            viewState.Restore(_session);
+        }
         _layoutHost.Background = _session.Context.Theme.TokenBrush("background");
         _settingsStrip.Background = _session.Context.Theme.TokenBrush("background");
         _layoutHost.SetValue(TextElement.FontFamilyProperty, _session.Context.Theme.FontFamily);
@@ -451,43 +485,197 @@ public sealed class MainWindow : Window, IAppHost
 
     public bool HasBanner(string key) => _bannerControls.ContainsKey(key);
 
+    /// <summary>
+    /// Watches every layout folder (and the layout's own folder), not only the file in use: the editor saves a customised
+    /// copy of a built-in layout into the user's folder, and that copy takes over from the built-in one.
+    /// </summary>
     private void Watch(string? path)
     {
-        _watcher?.Dispose();
-        _watcher = null;
-        if (path is null) return;
-        try
+        foreach (var watcher in _watchers) watcher.Dispose();
+        _watchers.Clear();
+        var folders = _services.Layouts.Folders.ToList();
+        if (path is not null) folders.Add(Path.GetDirectoryName(path)!);
+        var roots = folders.Where(Directory.Exists).Select(f => Path.GetFullPath(f).TrimEnd(Path.DirectorySeparatorChar)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        foreach (var root in roots.Where(r => !roots.Any(o => o != r && r.StartsWith(o + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))))
         {
-            // Watch the folder: editors often replace files rather than write them in place.
-            _watcher = new FileSystemWatcher(Path.GetDirectoryName(path)!) { IncludeSubdirectories = true, NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName | NotifyFilters.Size };
-            _watcher.Changed += (_, _) => ScheduleReload();
-            _watcher.Created += (_, _) => ScheduleReload();
-            _watcher.Renamed += (_, _) => ScheduleReload();
-            _watcher.EnableRaisingEvents = true;
-        }
-        catch (Exception ex) when (ex is IOException or ArgumentException or PlatformNotSupportedException)
-        {
-            _services.Console.Warning($"Live layout reload is unavailable: {ex.Message}");
+            try
+            {
+                // Watch the folder: editors often replace files rather than write them in place.
+                var watcher = new FileSystemWatcher(root) { IncludeSubdirectories = true, NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName | NotifyFilters.Size };
+                FileSystemEventHandler changed = (_, e) => ScheduleReload(e.FullPath);
+                watcher.Changed += changed;
+                watcher.Created += changed;
+                watcher.Deleted += changed;
+                watcher.Renamed += (_, e) => ScheduleReload(e.FullPath);
+                watcher.EnableRaisingEvents = true;
+                _watchers.Add(watcher);
+            }
+            catch (Exception ex) when (ex is IOException or ArgumentException or PlatformNotSupportedException)
+            {
+                _services.Console.Warning($"Live layout reload is unavailable for {root}: {ex.Message}");
+            }
         }
     }
 
-    private void ScheduleReload() => Dispatcher.UIThread.Post(() =>
+    private static readonly string[] AssetExtensions = [".svg", ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp"];
+
+    private static bool IsAsset(string file) => AssetExtensions.Contains(Path.GetExtension(file), StringComparer.OrdinalIgnoreCase);
+
+    private void ScheduleReload(string changedFile) => Dispatcher.UIThread.Post(() =>
     {
-        _reloadTimer ??= new DispatcherTimer(TimeSpan.FromMilliseconds(400), DispatcherPriority.Background, (_, _) =>
+        if (IsAsset(changedFile)) _assetsChanged = true;
+        _reloadTimer ??= new DispatcherTimer(TimeSpan.FromMilliseconds(250), DispatcherPriority.Background, (_, _) =>
         {
             _reloadTimer!.Stop();
-            if (_currentLayoutPath is not null && LoadLayout(_currentLayoutPath))
-                _services.Console.Info($"Reloaded layout {Path.GetFileName(_currentLayoutPath)}.");
+            ReloadIfChanged();
         });
         _reloadTimer.Stop();
         _reloadTimer.Start();
     });
+
+    /// <summary>Reloads when the file now in force for the current layout differs from what was loaded, or when a picture or other asset changed.</summary>
+    private void ReloadIfChanged()
+    {
+        if (_currentLayoutPath is null) return;
+        var target = (_currentLayoutName is not null ? _services.Layouts.Find(_currentLayoutName) : null) ?? _currentLayoutPath;
+        var assets = _assetsChanged;
+        _assetsChanged = false;
+        if (!assets && string.Equals(target, _currentLayoutPath, StringComparison.OrdinalIgnoreCase) && TryRead(target) is { } now && now == _loadedText) return;
+        if (LoadLayout(target)) _services.Console.Info($"Reloaded layout {Path.GetFileName(target)}.");
+    }
+
+    // ------------------------------------------------------------------ layout editor link
+
+    private readonly Canvas _overlay = new() { IsHitTestVisible = false };
+    private readonly Border _outline = new() { BorderBrush = Brush.Parse("#F97316"), BorderThickness = new Thickness(3), Background = Brush.Parse("#33F97316"), IsVisible = false, CornerRadius = new CornerRadius(3) };
+    private readonly Border _pickBadge = new()
+    {
+        Background = Brush.Parse("#F97316"), CornerRadius = new CornerRadius(14), Padding = new Thickness(14, 6), IsVisible = false,
+        Child = new TextBlock { Text = "Layout editor: click an element to pick it (Esc to stop)", Foreground = Brushes.White, FontWeight = FontWeight.SemiBold },
+    };
+    private DispatcherTimer? _flashTimer;
+    private bool _picking;
+
+    private Control CreateEditorOverlay()
+    {
+        _overlay.Children.Add(_outline);
+        _overlay.Children.Add(_pickBadge);
+        Canvas.SetLeft(_pickBadge, 16);
+        Canvas.SetTop(_pickBadge, 12);
+        return _overlay;
+    }
+
+    private void StartEditorLink(string[] args)
+    {
+        if (args.Any(a => a.Equals("--no-editor-link", StringComparison.OrdinalIgnoreCase))) return;
+        _editorLink = new EditorLink(ArgValue(args, "--editor-pipe"));
+        _editorLink.Message += m => Dispatcher.UIThread.Post(() => OnEditorMessage(m));
+        _editorLink.ConnectionChanged += connected => Dispatcher.UIThread.Post(() =>
+        {
+            if (connected) AnnounceLayout();
+            else SetPicking(false, notify: false);
+        });
+        _editorLink.Start();
+        AddHandler(PointerMovedEvent, OnPickMove, Avalonia.Interactivity.RoutingStrategies.Tunnel, handledEventsToo: true);
+        AddHandler(PointerPressedEvent, OnPickPress, Avalonia.Interactivity.RoutingStrategies.Tunnel, handledEventsToo: true);
+        AddHandler(PointerReleasedEvent, OnPickRelease, Avalonia.Interactivity.RoutingStrategies.Tunnel, handledEventsToo: true);
+    }
+
+    private void AnnounceLayout() => _editorLink?.Send(new System.Text.Json.Nodes.JsonObject
+    {
+        ["event"] = "layout",
+        ["name"] = _currentLayoutName ?? _session?.Document.Name,
+        ["file"] = _currentLayoutPath,
+    });
+
+    private void OnEditorMessage(System.Text.Json.Nodes.JsonObject message)
+    {
+        switch (message["cmd"]?.GetValue<string>())
+        {
+            case "reveal" when message["path"]?.GetValue<string>() is { } path && _session is not null:
+                if (IsSettingsOpen) CloseSettings();
+                Show(LayoutInspector.Reveal(_session, path), flash: true);
+                break;
+            case "inspect":
+                SetPicking(message["on"]?.GetValue<bool>() ?? false, notify: false);
+                break;
+            case "load" when message["layout"]?.GetValue<string>() is { Length: > 0 } layout:
+                LoadLayout(layout);
+                break;
+        }
+    }
+
+    private void SetPicking(bool on, bool notify)
+    {
+        _picking = on;
+        _pickBadge.IsVisible = on;
+        if (!on) _outline.IsVisible = false;
+        if (notify) _editorLink?.Send(new System.Text.Json.Nodes.JsonObject { ["event"] = "inspect", ["on"] = on });
+    }
+
+    /// <summary>Outlines an element; a flash fades after a moment, hover in pick mode stays.</summary>
+    private void Show(ComponentHost? host, bool flash)
+    {
+        _flashTimer?.Stop();
+        if (host is null || Content is not Panel root || host.TranslatePoint(new Point(0, 0), root) is not { } origin)
+        {
+            _outline.IsVisible = false;
+            return;
+        }
+        Canvas.SetLeft(_outline, origin.X);
+        Canvas.SetTop(_outline, origin.Y);
+        _outline.Width = host.Bounds.Width;
+        _outline.Height = host.Bounds.Height;
+        _outline.IsVisible = true;
+        if (!flash) return;
+        _flashTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(1800), DispatcherPriority.Background, (_, _) =>
+        {
+            _flashTimer!.Stop();
+            if (!_picking) _outline.IsVisible = false;
+        });
+        _flashTimer.Start();
+    }
+
+    private ComponentHost? PickTarget(PointerEventArgs e) =>
+        _session is not null && Content is Panel root ? LayoutInspector.HitTest(_session, root, e.GetPosition(root)) : null;
+
+    private void OnPickMove(object? sender, PointerEventArgs e)
+    {
+        if (_picking) Show(PickTarget(e), flash: false);
+    }
+
+    private void OnPickPress(object? sender, PointerPressedEventArgs e)
+    {
+        if (!_picking) return;
+        e.Handled = true; // the click picks; it must not press the button under it
+        if (PickTarget(e) is { } host)
+        {
+            Show(host, flash: false);
+            _editorLink?.Send(new System.Text.Json.Nodes.JsonObject
+            {
+                ["event"] = "picked",
+                ["layout"] = _currentLayoutName,
+                ["path"] = host.Node.Path,
+            });
+        }
+    }
+
+    private void OnPickRelease(object? sender, PointerReleasedEventArgs e)
+    {
+        if (_picking) e.Handled = true;
+    }
 
     // ------------------------------------------------------------------ keyboard shortcuts
 
     private void OnKeyDown(object? sender, KeyEventArgs e)
     {
         if (e.Handled) return;
+        if (_picking && e.Key == Key.Escape)
+        {
+            e.Handled = true;
+            SetPicking(false, notify: true);
+            return;
+        }
         // Built in like Ctrl+L: flips between the layout and the settings page.
         if (e.Key == Key.OemComma && e.KeyModifiers == KeyModifiers.Control)
         {
@@ -522,8 +710,31 @@ public sealed class MainWindow : Window, IAppHost
         if (_session?.MatchShortcut(e, typing) is { } shortcut)
         {
             e.Handled = true;
+            if (shortcut.Release is not null) _heldKeys[e.Key] = shortcut;
+            if (!shortcut.Repeat && _autoRepeating.Contains(e.Key)) return;
+            _autoRepeating.Add(e.Key);
             _ = _services.Commands.ExecuteAsync(shortcut.Command, shortcut.Args);
         }
+    }
+
+    // Keys whose shortcut has a release command (jogging while a key is held), and keys already down (so repeat:false can ignore auto-repeat).
+    private readonly Dictionary<Key, LayoutSession.KeyBinding> _heldKeys = [];
+    private readonly HashSet<Key> _autoRepeating = [];
+
+    private void OnKeyUp(object? sender, KeyEventArgs e)
+    {
+        _autoRepeating.Remove(e.Key);
+        if (_heldKeys.Remove(e.Key, out var binding) && binding.Release is { } release)
+            _ = _services.Commands.ExecuteAsync(release, binding.ReleaseArgs);
+    }
+
+    /// <summary>Lets go of every held key, e.g. when the window loses focus, so a continuous jog cannot run on.</summary>
+    private void ReleaseHeldKeys()
+    {
+        _autoRepeating.Clear();
+        foreach (var binding in _heldKeys.Values.DistinctBy(b => b.Release))
+            if (binding.Release is { } release) _ = _services.Commands.ExecuteAsync(release, binding.ReleaseArgs);
+        _heldKeys.Clear();
     }
 
     public async Task ChooseLayoutAsync()
@@ -535,6 +746,17 @@ public sealed class MainWindow : Window, IAppHost
 
     // ------------------------------------------------------------------ IAppHost
 
+    /// <summary>The folder the file pickers open in: the one last used for a local file, when it still exists.</summary>
+    private async Task<IStorageFolder?> StartFolderAsync() =>
+        _services.Settings.LastFolder is { } folder ? await StorageProvider.TryGetFolderFromPathAsync(folder) : null;
+
+    /// <summary>Remembers the folder of a file the user picked, for the next picker.</summary>
+    private void RememberFolderOf(string? path)
+    {
+        if (path is null) return;
+        _services.Settings.RememberFolder(System.IO.Directory.Exists(path) ? path : Path.GetDirectoryName(path));
+    }
+
     public async Task OpenFileAsync(string? path)
     {
         if (path is null)
@@ -543,6 +765,7 @@ public sealed class MainWindow : Window, IAppHost
             {
                 Title = "Open G-code",
                 AllowMultiple = false,
+                SuggestedStartLocation = await StartFolderAsync(),
                 FileTypeFilter =
                 [
                     new FilePickerFileType("G-code") { Patterns = ["*.nc", "*.gcode", "*.gc", "*.ngc", "*.cnc", "*.tap", "*.txt"] },
@@ -551,6 +774,7 @@ public sealed class MainWindow : Window, IAppHost
             });
             path = files.FirstOrDefault()?.TryGetLocalPath();
             if (path is null) return;
+            RememberFolderOf(path);
         }
         var program = await Task.Run(() => GcodeProgram.Load(path));
         _services.SetProgram(program);
@@ -573,7 +797,7 @@ public sealed class MainWindow : Window, IAppHost
     {
         Dispatcher.UIThread.Post(() =>
         {
-            if (LoadLayout(_currentLayoutPath ?? _services.Settings.Layout)) _services.Console.Info("Layout reloaded.");
+            if (LoadLayout(_currentLayoutName ?? _currentLayoutPath ?? _services.Settings.Layout)) _services.Console.Info("Layout reloaded.");
         });
         return Task.CompletedTask;
     }
@@ -594,9 +818,11 @@ public sealed class MainWindow : Window, IAppHost
                 Title = "Save G-code as",
                 SuggestedFileName = program.Path is { } p ? Path.GetFileNameWithoutExtension(p) + "-edited" + Path.GetExtension(p) : "program.nc",
                 DefaultExtension = program.Path is { } q ? Path.GetExtension(q).TrimStart('.') : "nc",
+                SuggestedStartLocation = program.Path is { } origin ? await StorageProvider.TryGetFolderFromPathAsync(Path.GetDirectoryName(origin)!) : await StartFolderAsync(),
             });
             path = file?.TryGetLocalPath();
             if (path is null) return;
+            RememberFolderOf(path);
         }
         await File.WriteAllLinesAsync(path, program.Lines);
         _services.SetProgram(GcodeProgram.Parse(program.Lines, path));
@@ -638,12 +864,38 @@ public sealed class MainWindow : Window, IAppHost
 
     public async Task<string?> PickSavePathAsync(string suggestedName)
     {
-        var file = await Dispatcher.UIThread.InvokeAsync(() => StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+        var file = await Dispatcher.UIThread.InvokeAsync(async () => await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
         {
             Title = "Save the file from the machine",
             SuggestedFileName = suggestedName,
+            SuggestedStartLocation = await StartFolderAsync(),
         }));
-        return file?.TryGetLocalPath();
+        var path = file?.TryGetLocalPath();
+        RememberFolderOf(path);
+        return path;
+    }
+
+    public async Task<string?> PickFolderAsync(string title)
+    {
+        var folders = await Dispatcher.UIThread.InvokeAsync(async () =>
+            await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions { Title = title, AllowMultiple = false, SuggestedStartLocation = await StartFolderAsync() }));
+        var path = folders.FirstOrDefault()?.TryGetLocalPath();
+        RememberFolderOf(path);
+        return path;
+    }
+
+    public async Task<string?> PickOpenPathAsync(string title, params string[] patterns)
+    {
+        var files = await Dispatcher.UIThread.InvokeAsync(async () => await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = title,
+            AllowMultiple = false,
+            FileTypeFilter = [new FilePickerFileType("Files") { Patterns = patterns }, FilePickerFileTypes.All],
+            SuggestedStartLocation = await StartFolderAsync(),
+        }));
+        var path = files.FirstOrDefault()?.TryGetLocalPath();
+        RememberFolderOf(path);
+        return path;
     }
 
     public async Task UploadFileAsync(string? path, string? remoteDirectory)
@@ -664,10 +916,11 @@ public sealed class MainWindow : Window, IAppHost
         }
         if (path is null)
         {
-            var files = await Dispatcher.UIThread.InvokeAsync(() => StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+            var files = await Dispatcher.UIThread.InvokeAsync(async () => await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
             {
                 Title = "Upload G-code to the machine",
                 AllowMultiple = false,
+                SuggestedStartLocation = await StartFolderAsync(),
                 FileTypeFilter =
                 [
                     new FilePickerFileType("G-code") { Patterns = ["*.nc", "*.gcode", "*.gc", "*.ngc", "*.cnc", "*.tap", "*.txt"] },
@@ -676,6 +929,7 @@ public sealed class MainWindow : Window, IAppHost
             }));
             path = files.FirstOrDefault()?.TryGetLocalPath();
             if (path is null) return;
+            RememberFolderOf(path);
         }
 
         var settings = _services.Settings;

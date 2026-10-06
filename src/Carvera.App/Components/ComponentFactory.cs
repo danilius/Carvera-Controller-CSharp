@@ -34,6 +34,9 @@ public static class ComponentFactory
         "operationlist" => ProgramComponents.Operations(node, host, ctx),
         "toollist" => ProgramComponents.Tools(node, host, ctx),
         "remotefiles" => RemoteFilesComponent.Create(node, host, ctx),
+        "machineconfig" => MachineConfigComponent.Create(node, host, ctx),
+        "probepanel" => ProbePanelComponent.Create(node, host, ctx),
+        "bedview" => new Bed.BedView(node, host, ctx),
         "layoutselector" => ButtonComponents.LayoutSelector(node, host, ctx),
         _ => throw new NotSupportedException($"Unknown element type '{node.Type}'."),
     };

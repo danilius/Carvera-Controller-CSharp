@@ -19,7 +19,7 @@ namespace Carvera.App.Components.Viewer;
 /// everything. Alt+left-drag stands in for the middle button, and the axis gizmo in the corner
 /// can be clicked or dragged.
 /// </summary>
-public sealed class ToolpathView : Panel
+public sealed partial class ToolpathView : Panel
 {
     private enum Drag { None, Orbit, Pan, Zoom }
 
@@ -58,6 +58,8 @@ public sealed class ToolpathView : Panel
         _ctx = ctx;
         _showGrid = node.GetBool("showGrid") ?? true;
         _showGizmo = node.GetBool("showGizmo") ?? true;
+        _showBed = node.GetBool("showBed") ?? true;
+        _bedImageSource = node.GetString("bedImage");
         _colorByOperation = !string.Equals(node.GetString("colorBy"), "single", StringComparison.OrdinalIgnoreCase);
         _gridSize = Math.Max(0.1, node.GetNumber("gridSize") ?? 10);
         _toolLength = Math.Max(1, node.GetNumber("toolLength") ?? 25);
@@ -95,6 +97,7 @@ public sealed class ToolpathView : Panel
         ctx.Track(new Detach(() => ctx.Services.ProgramChanged -= OnProgram));
         ctx.Watch([StatePaths.AxisWork("x"), StatePaths.AxisWork("y"), StatePaths.AxisWork("z"), StatePaths.Connected, StatePaths.JobLines, StatePaths.JobPlaying,
             StatePaths.PreviewSegment, StatePaths.PreviewOperation], Redraw);
+        ctx.Watch(BedPaths, Redraw);
         Load(ctx.Services.Program);
     }
 
@@ -234,6 +237,12 @@ public sealed class ToolpathView : Panel
     {
         if (_program is { Segments.Count: > 0 } p)
             return (new Vector3((float)p.Min.X, (float)p.Min.Y, (float)p.Min.Z), new Vector3((float)p.Max.X, (float)p.Max.Y, (float)p.Max.Z));
+        if (_showBed && _ctx.State.Get(StatePaths.ViewBedImage, true))
+        {
+            // No file: show the bed.
+            var corners = BedCorners();
+            return (new Vector3(corners.Min(c => c.X), corners.Min(c => c.Y), 0), new Vector3(corners.Max(c => c.X), corners.Max(c => c.Y), 20));
+        }
         return (new Vector3(-50, -50, 0), new Vector3(50, 50, 20));
     }
 
@@ -263,6 +272,7 @@ public sealed class ToolpathView : Panel
         }
         if (WantGpu() != (_gl is not null)) UpdateRenderer(); // the renderer setting changed
         context.FillRectangle(Brushes.Transparent, new Rect(Bounds.Size));
+        DrawBed(context);
         if (_showGrid) DrawGrid(context);
         if (_gl is not null) return; // the GPU layer draws the path; the overlay layer draws the rest
         DrawPaths(context);

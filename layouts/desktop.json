@@ -81,7 +81,16 @@
             { "type": "button", "class": "section-button", "text": "Go to XY0", "command": "gotoWorkHome" }
           ]
         },
-        { "type": "wcsSelector", "height": 32 }
+        { "type": "wcsSelector", "height": 32 },
+        {
+          "type": "stack", "orientation": "horizontal", "spacing": 6, "height": "auto",
+          "children": [
+            { "type": "button", "class": "section-button", "text": "Set position…", "command": "setWorkPositionPrompt", "tooltip": "Type in what the current position should read" },
+            { "type": "button", "class": "section-button", "text": "Rotate…", "command": "setRotation", "tooltip": "Rotate the active work coordinate system" },
+            { "type": "button", "class": "section-button", "text": "Clear rotation", "command": "clearRotation" },
+            { "type": "button", "class": "section-button", "text": "Set origin…", "command": "setWorkOrigin", "tooltip": "Put the work origin at an offset from anchor 1, anchor 2, the rotation centre or where the machine is now" }
+          ]
+        }
       ]
     },
 
@@ -92,6 +101,17 @@
       "children": [
         { "type": "jogPad", "axes": ["X", "Y", "Z"], "diagonals": true, "height": 190 },
         { "type": "jogStep", "height": 30 },
+        {
+          "type": "stack", "orientation": "horizontal", "spacing": 6, "height": "auto",
+          "children": [
+            {
+              "type": "toggle", "text": "Continuous", "bind": "jog.buttonMode == 'continuous'", "command": "setJogMode",
+              "onArgs": { "mode": "continuous" }, "offArgs": { "mode": "step" },
+              "tooltip": "Off: one jog step per click or key press. On: the machine keeps moving while the button or key is held."
+            },
+            { "type": "toggle", "text": "Keys", "bind": "jog.keyboard", "command": "setJogKeyboard", "tooltip": "Jog with Ctrl+arrows and Ctrl+PageUp/PageDown. They follow the Continuous setting." }
+          ]
+        },
         {
           "type": "choice", "height": 30, "bind": "jog.feed", "command": "setJogFeed",
           "options": [
@@ -151,6 +171,82 @@
       ]
     },
 
+    "currentTool": {
+      "type": "panel",
+      "title": "Current tool",
+      "spacing": 4,
+      "children": [
+        {
+          "type": "text", "text": "{tool.label}", "height": "auto", "style": { "fontSize": 22, "fontWeight": "semibold" },
+          "tooltip": "The tool in the spindle"
+        },
+        { "type": "value", "label": "Length offset", "bind": "tool.offset", "format": "0.000", "unit": "mm", "height": "auto" },
+        {
+          "type": "text", "text": "", "height": "auto", "visible": "tool.target >= 0 && tool.target != tool.current",
+          "style": { "foreground": "@warning" },
+          "conditions": [ { "when": "tool.target >= 0 && tool.target != tool.current", "text": "Changing to {tool.targetLabel}" } ]
+        },
+        {
+          "type": "text", "text": "{atc.label}", "height": "auto", "visible": "atc.state != 0",
+          "style": { "foreground": "@warning" }
+        }
+      ]
+    },
+
+    "toolChange": {
+      "type": "panel",
+      "title": "Tool change",
+      "spacing": 6,
+      "children": [
+        {
+          "type": "grid", "columns": ["*", "*", "*"], "rows": ["auto", "auto", "auto"], "spacing": 6, "height": "auto",
+          "children": [
+            { "type": "button", "row": 0, "column": 0, "text": "T1", "command": "toolChange", "args": { "tool": 1 }, "tooltip": "Change to tool 1", "conditions": [ { "when": "tool.current == 1", "background": "@accentSoft", "borderColor": "@accent" } ] },
+            { "type": "button", "row": 0, "column": 1, "text": "T2", "command": "toolChange", "args": { "tool": 2 }, "tooltip": "Change to tool 2", "conditions": [ { "when": "tool.current == 2", "background": "@accentSoft", "borderColor": "@accent" } ] },
+            { "type": "button", "row": 0, "column": 2, "text": "T3", "command": "toolChange", "args": { "tool": 3 }, "tooltip": "Change to tool 3", "conditions": [ { "when": "tool.current == 3", "background": "@accentSoft", "borderColor": "@accent" } ] },
+            { "type": "button", "row": 1, "column": 0, "text": "T4", "command": "toolChange", "args": { "tool": 4 }, "tooltip": "Change to tool 4", "conditions": [ { "when": "tool.current == 4", "background": "@accentSoft", "borderColor": "@accent" } ] },
+            { "type": "button", "row": 1, "column": 1, "text": "T5", "command": "toolChange", "args": { "tool": 5 }, "tooltip": "Change to tool 5", "conditions": [ { "when": "tool.current == 5", "background": "@accentSoft", "borderColor": "@accent" } ] },
+            { "type": "button", "row": 1, "column": 2, "text": "T6", "command": "toolChange", "args": { "tool": 6 }, "tooltip": "Change to tool 6", "conditions": [ { "when": "tool.current == 6", "background": "@accentSoft", "borderColor": "@accent" } ] },
+            { "type": "button", "row": 2, "column": 0, "text": "Probe", "command": "toolChange", "args": { "tool": 0 }, "tooltip": "Change to the wireless probe" },
+            { "type": "button", "row": 2, "column": 1, "text": "3D Probe", "command": "toolChange", "args": { "tool": 999990 }, "tooltip": "Change to the 3D probe" },
+            { "type": "button", "row": 2, "column": 2, "text": "Other…", "command": "toolChoose", "tooltip": "Type a tool number" }
+          ]
+        },
+        {
+          "type": "grid", "columns": ["*", "*"], "rows": ["auto", "auto", "auto"], "spacing": 6, "height": "auto",
+          "children": [
+            { "type": "button", "row": 0, "column": 0, "text": "Drop tool", "command": "toolDrop", "tooltip": "Put the tool in the spindle back in the magazine" },
+            { "type": "button", "row": 0, "column": 1, "text": "Calibrate", "command": "toolCalibrate", "tooltip": "Measure the tool length on the tool sensor" },
+            { "type": "button", "row": 1, "column": 0, "text": "Clamp", "command": "toolClamp", "tooltip": "Close the collet" },
+            { "type": "button", "row": 1, "column": 1, "text": "Release", "command": "toolUnclamp", "tooltip": "Open the collet" },
+            { "type": "button", "row": 2, "column": 0, "columnSpan": 2, "text": "Set tool number…", "command": "toolSetNumber", "tooltip": "Tell the machine which tool is in the spindle, without moving" }
+          ]
+        }
+      ]
+    },
+
+    "prepare": {
+      "type": "panel",
+      "title": "Prepare workpiece",
+      "spacing": 6,
+      "children": [
+        {
+          "type": "grid", "columns": ["*", "*"], "rows": ["auto", "auto", "auto", "auto", "auto"], "spacing": 6, "height": "auto",
+          "children": [
+            { "type": "button", "row": 3, "column": 0, "text": "Z probe", "command": "autoRun", "args": { "zProbe": true }, "enabled": "file.hasBounds", "tooltip": "Probe Z at the Z probe position below" },
+            { "type": "button", "row": 3, "column": 1, "text": "Z probe position…", "command": "zProbeSetup", "tooltip": "Where the Z probe is: from the work or path origin" },
+            { "type": "text", "row": 4, "column": 0, "columnSpan": 2, "text": "Z probe {zprobe.label}", "wrap": true, "height": "auto" },
+            { "type": "button", "row": 0, "column": 0, "text": "Margin", "command": "autoRun", "args": { "margin": true }, "enabled": "file.hasBounds", "tooltip": "Trace the open program's outline" },
+            { "type": "button", "row": 0, "column": 1, "text": "Auto-level", "command": "autoRun", "args": { "leveling": true, "pointsX": 3, "pointsY": 3, "height": 5 }, "enabled": "file.hasBounds", "tooltip": "Probe a 3 x 3 grid over the open program's area" },
+            { "type": "button", "row": 1, "column": 0, "text": "Go to path origin", "command": "gotoPathOrigin", "tooltip": "Move to the lower-left corner of the open program" },
+            { "type": "button", "row": 1, "column": 1, "text": "XYZ probe", "command": "xyzProbe", "tooltip": "Probe X, Y and Z of a workpiece at the current position" },
+            { "type": "button", "row": 2, "column": 0, "text": "Clear auto-level", "command": "clearAutoLevel", "tooltip": "Forget the auto-level map" },
+            { "type": "button", "row": 2, "column": 1, "text": "Pair probe", "command": "pairProbe", "tooltip": "Pair the wireless workpiece probe" }
+          ]
+        }
+      ]
+    },
+
     "readings": {
       "type": "panel",
       "title": "Readings",
@@ -175,7 +271,14 @@
       {
         "type": "stack", "orientation": "horizontal", "height": 38, "spacing": 8,
         "children": [
-          { "type": "machineStatus", "width": 130 },
+          {
+            "type": "machineStatus", "width": 130,
+            "tooltip": "The machine's state. It reads 'Waiting' until the first status report arrives, and 'No response' if reports stop.",
+            "conditions": [
+              { "when": "connection.connected && machine.awaitingStatus", "text": "Waiting…" },
+              { "when": "connection.connected && machine.stalled", "text": "No response", "background": "@warningSoft", "borderColor": "@warning" }
+            ]
+          },
           { "type": "connection", "width": "auto", "kinds": ["wifi", "usb", "simulator"] },
           {
             "type": "text", "text": "No file open", "margin": "8 0 0 0", "tooltip": "The G-code file that is open",
@@ -220,6 +323,71 @@
                         ]
                       },
                       { "type": "gcodeList", "title": "G-code {file.localName}" },
+                      { "type": "probePanel", "title": "Probing" },
+                      {
+                        "type": "scroll", "title": "Ring gauge",
+                        "child": {
+                          "type": "stack", "spacing": 8, "margin": "0 10 0 0",
+                          "children": [
+                            { "type": "text", "text": "{probe.drift.title}", "height": "auto", "style": { "fontSize": 16, "fontWeight": "semibold" } },
+                            { "type": "text", "text": "{probe.drift.text}", "wrap": true, "height": "auto" },
+                            {
+                              "type": "stack", "orientation": "horizontal", "spacing": 6, "height": "auto",
+                              "children": [
+                                { "type": "button", "text": "{probe.drift.primary}", "command": "ringGaugeProbe", "tooltip": "Probes the ring gauge (asks first)" },
+                                { "type": "button", "text": "Back", "command": "ringGaugeBack", "enabled": "probe.drift.step > 0 && !probe.drift.running" },
+                                { "type": "button", "text": "Restart", "command": "ringGaugeReset", "enabled": "!probe.drift.running" }
+                              ]
+                            },
+                            { "type": "toggle", "text": "Include the probe tip diameter", "bind": "probe.drift.applyTip", "command": "ringGaugeApplyTip", "onArgs": { "value": true }, "offArgs": { "value": false }, "height": "auto" },
+                            { "type": "toggle", "text": "Keep the correction for XY-zeroing probes", "bind": "probe.drift.persist", "command": "ringGaugePersist", "onArgs": { "value": true }, "offArgs": { "value": false }, "height": "auto" },
+                            { "type": "text", "text": "{probe.drift.points}", "wrap": true, "height": "auto" },
+                            { "type": "text", "text": "{probe.drift.result}", "wrap": true, "height": "auto" },
+                            { "type": "text", "text": "{probe.drift.stored}", "height": "auto" }
+                          ]
+                        }
+                      },
+                      {
+                        "type": "scroll", "title": "Diagnose",
+                        "child": {
+                          "type": "stack", "spacing": 10, "margin": "0 10 0 0",
+                          "children": [
+                            {
+                              "type": "panel", "title": "Switches", "spacing": 4,
+                              "children": [
+                                { "type": "indicator", "text": "Spindle", "bind": "switch.spindle", "height": "auto" },
+                                { "type": "indicator", "text": "Spindle fan", "bind": "switch.spindleFan", "height": "auto" },
+                                { "type": "indicator", "text": "Laser", "bind": "switch.laser", "height": "auto" },
+                                { "type": "indicator", "text": "Vacuum", "bind": "switch.vacuum", "height": "auto" },
+                                { "type": "indicator", "text": "Light", "bind": "switch.light", "height": "auto" },
+                                { "type": "indicator", "text": "Air", "bind": "switch.air", "height": "auto" },
+                                { "type": "indicator", "text": "Tool sensor power", "bind": "switch.toolSensor", "height": "auto" },
+                                { "type": "indicator", "text": "Workpiece probe charging", "bind": "switch.wpCharge", "height": "auto" },
+                                { "type": "value", "label": "Spindle level", "bind": "level.spindle", "format": "0", "height": "auto" },
+                                { "type": "value", "label": "Vacuum level", "bind": "level.vacuum", "format": "0", "height": "auto" },
+                                { "type": "value", "label": "Laser level", "bind": "level.laser", "format": "0", "height": "auto" },
+                                { "type": "value", "label": "Spindle fan level", "bind": "level.spindleFan", "format": "0", "height": "auto" }
+                              ]
+                            },
+                            {
+                              "type": "panel", "title": "Sensors", "spacing": 4,
+                              "children": [
+                                { "type": "indicator", "text": "X min limit", "bind": "sensor.xMin", "height": "auto" },
+                                { "type": "indicator", "text": "X max limit", "bind": "sensor.xMax", "height": "auto" },
+                                { "type": "indicator", "text": "Y min limit", "bind": "sensor.yMin", "height": "auto" },
+                                { "type": "indicator", "text": "Y max limit", "bind": "sensor.yMax", "height": "auto" },
+                                { "type": "indicator", "text": "Z max limit", "bind": "sensor.zMax", "height": "auto" },
+                                { "type": "indicator", "text": "Cover open", "bind": "sensor.cover", "height": "auto" },
+                                { "type": "indicator", "text": "Probe", "bind": "sensor.probe", "height": "auto" },
+                                { "type": "indicator", "text": "Calibrate input", "bind": "sensor.calibrate", "height": "auto" },
+                                { "type": "indicator", "text": "ATC home", "bind": "sensor.atcHome", "height": "auto" },
+                                { "type": "indicator", "text": "Tool sensor", "bind": "sensor.toolSensor", "height": "auto" },
+                                { "type": "indicator", "text": "Emergency stop", "bind": "sensor.estop", "height": "auto", "tooltip": "Lit while the emergency stop is pressed" }
+                              ]
+                            }
+                          ]
+                        }
+                      },
                       {
                         "type": "stack", "title": "Machine files", "spacing": 6,
                         "children": [
@@ -279,18 +447,37 @@
             "children": [
               { "region": "runControls", "height": "auto" },
               {
-                "type": "scroll",
-                "child": {
-                  "type": "stack", "spacing": 10, "margin": "0 10 0 0",
-                  "children": [
-                    { "region": "dro" },
-                    { "region": "jog" },
-                    { "region": "workOffsets" },
-                    { "region": "overrides" },
-                    { "region": "machine" },
-                    { "region": "readings" }
-                  ]
-                }
+                "type": "tabs",
+                "children": [
+                  {
+                    "type": "scroll", "title": "Move",
+                    "child": {
+                      "type": "stack", "spacing": 10, "margin": "0 10 0 0",
+                      "children": [ { "region": "dro" }, { "region": "jog" }, { "region": "workOffsets" } ]
+                    }
+                  },
+                  {
+                    "type": "scroll", "title": "Machine",
+                    "child": {
+                      "type": "stack", "spacing": 10, "margin": "0 10 0 0",
+                      "children": [ { "region": "overrides" }, { "region": "machine" }, { "region": "readings" } ]
+                    }
+                  },
+                  {
+                    "type": "scroll", "title": "Tools",
+                    "child": {
+                      "type": "stack", "spacing": 10, "margin": "0 10 0 0",
+                      "children": [ { "region": "currentTool" }, { "region": "toolChange" } ]
+                    }
+                  },
+                  {
+                    "type": "scroll", "title": "Prepare",
+                    "child": {
+                      "type": "stack", "spacing": 10, "margin": "0 10 0 0",
+                      "children": [ { "region": "prepare" } ]
+                    }
+                  }
+                ]
               }
             ]
           }
@@ -302,12 +489,12 @@
   "shortcuts": [
     { "key": "Escape", "command": "feedHold" },
     { "key": "Ctrl+Space", "command": "pauseResume" },
-    { "key": "Ctrl+Left", "command": "jog", "args": { "axis": "X-" } },
-    { "key": "Ctrl+Right", "command": "jog", "args": { "axis": "X+" } },
-    { "key": "Ctrl+Up", "command": "jog", "args": { "axis": "Y+" } },
-    { "key": "Ctrl+Down", "command": "jog", "args": { "axis": "Y-" } },
-    { "key": "Ctrl+PageUp", "command": "jog", "args": { "axis": "Z+" } },
-    { "key": "Ctrl+PageDown", "command": "jog", "args": { "axis": "Z-" } },
+    { "key": "Ctrl+Left", "command": "jogKey", "args": { "axis": "X-" }, "release": "jogKeyStop" },
+    { "key": "Ctrl+Right", "command": "jogKey", "args": { "axis": "X+" }, "release": "jogKeyStop" },
+    { "key": "Ctrl+Up", "command": "jogKey", "args": { "axis": "Y+" }, "release": "jogKeyStop" },
+    { "key": "Ctrl+Down", "command": "jogKey", "args": { "axis": "Y-" }, "release": "jogKeyStop" },
+    { "key": "Ctrl+PageUp", "command": "jogKey", "args": { "axis": "Z+" }, "release": "jogKeyStop" },
+    { "key": "Ctrl+PageDown", "command": "jogKey", "args": { "axis": "Z-" }, "release": "jogKeyStop" },
     { "key": "Ctrl+O", "command": "openFile" }
   ]
 }

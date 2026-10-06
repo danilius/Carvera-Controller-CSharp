@@ -10,7 +10,10 @@ namespace Carvera.App.Shell;
 /// <summary>A layout that has been built into controls, with its subscriptions and shortcuts.</summary>
 public sealed class LayoutSession : IDisposable
 {
-    private readonly List<(KeyGesture Gesture, string Command, CommandArgs Args)> _shortcuts = [];
+    /// <summary>A key of the layout: what it runs, and optionally what runs when it is let go.</summary>
+    public sealed record KeyBinding(KeyGesture Gesture, string Command, CommandArgs Args, string? Release, CommandArgs ReleaseArgs, bool Repeat);
+
+    private readonly List<KeyBinding> _shortcuts = [];
 
     public LayoutSession(LayoutDocument document, AppServices services)
     {
@@ -23,7 +26,8 @@ public sealed class LayoutSession : IDisposable
             try
             {
                 var args = s.Args is null ? CommandArgs.Empty : CommandArgs.FromJson(System.Text.Json.JsonSerializer.SerializeToElement(s.Args));
-                _shortcuts.Add((KeyGesture.Parse(s.Key), s.Command, args));
+                var releaseArgs = s.ReleaseArgs is null ? CommandArgs.Empty : CommandArgs.FromJson(System.Text.Json.JsonSerializer.SerializeToElement(s.ReleaseArgs));
+                _shortcuts.Add(new KeyBinding(KeyGesture.Parse(s.Key), s.Command, args, s.Release, releaseArgs, s.Repeat));
             }
             catch (Exception ex) when (ex is ArgumentException or FormatException)
             {
@@ -38,16 +42,17 @@ public sealed class LayoutSession : IDisposable
     public Control Root { get; }
     public IReadOnlyList<ComponentHost> Hosts => Builder.Hosts;
 
-    public (string Command, CommandArgs Args)? MatchShortcut(KeyEventArgs e, bool typing)
+    public KeyBinding? MatchShortcut(KeyEventArgs e, bool typing)
     {
-        foreach (var (gesture, command, args) in _shortcuts)
+        foreach (var binding in _shortcuts)
         {
+            var gesture = binding.Gesture;
             if (!gesture.Matches(e)) continue;
             if (IsReserved(gesture)) continue;
             var hasModifier = (gesture.KeyModifiers & (KeyModifiers.Control | KeyModifiers.Alt | KeyModifiers.Meta)) != 0;
             var functionKey = gesture.Key is >= Key.F1 and <= Key.F24 or Key.Escape or Key.Pause;
             if (typing && !hasModifier && !functionKey) continue;
-            return (command, args);
+            return binding;
         }
         return null;
     }

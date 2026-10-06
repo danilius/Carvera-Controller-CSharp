@@ -37,6 +37,12 @@ public sealed class CarveraController : IAsyncDisposable
     /// <summary>How many times a live connection has been closed on request. Lets background reconnecting notice that the user chose to disconnect.</summary>
     public int DisconnectCount => Volatile.Read(ref _disconnectCount);
     public TimeSpan StatusInterval { get; set; } = TimeSpan.FromMilliseconds(200);
+
+    /// <summary>How long the machine may go without a status report before <see cref="StatePaths.Stalled"/> is set.</summary>
+    public TimeSpan StallTimeout { get; set; } = TimeSpan.FromSeconds(5);
+
+    private long _lastStatusTicks = Environment.TickCount64;
+    private bool _stalled;
     public TimeSpan DiagnoseInterval { get; set; } = TimeSpan.FromMilliseconds(1000);
     /// <summary>Poll the diagnose report so switch/sensor states (light, air, limit switches...) stay current.</summary>
     public bool DiagnosePolling { get; set; } = true;
@@ -72,7 +78,12 @@ public sealed class CarveraController : IAsyncDisposable
             State.Set(StatePaths.ConnectionState, "Connected");
             State.Set(StatePaths.Connected, true);
             State.Set(StatePaths.MachineState, "Wait");
+            State.Set(StatePaths.AwaitingStatus, true);
+            State.Set(StatePaths.Stalled, false);
+            State.Set(StatePaths.SilentSeconds, 0);
         }
+        _stalled = false;
+        Volatile.Write(ref _lastStatusTicks, Environment.TickCount64);
         Console.Info($"Connected to {stream.Description}.");
         _readLoop = Task.Run(() => ReadLoopAsync(stream, _session.Token));
         _pollLoop = Task.Run(() => PollLoopAsync(stream, _session.Token));
@@ -131,6 +142,9 @@ public sealed class CarveraController : IAsyncDisposable
         State.Set(StatePaths.ConnectionState, "Disconnected");
         State.Set(StatePaths.Connected, false);
         State.Set(StatePaths.MachineState, "N/A");
+        State.Set(StatePaths.AwaitingStatus, false);
+        State.Set(StatePaths.Stalled, false);
+        State.Set(StatePaths.SilentSeconds, 0);
     }
 
     /// <summary>Sends a text command, appending a newline if needed.</summary>
@@ -283,7 +297,13 @@ public sealed class CarveraController : IAsyncDisposable
             try
             {
                 await Task.Delay(StatusInterval, token).ConfigureAwait(false);
-                if (_exclusive is not null || _capture is not null) continue; // no polling while a file transfer or a listing runs
+                if (_exclusive is not null || _capture is not null)
+                {
+                    // No polling while a file transfer or a listing runs, so silence is expected: restart the clock.
+                    Volatile.Write(ref _lastStatusTicks, Environment.TickCount64);
+                    continue;
+                }
+                CheckForStall();
                 // While jogging continuously the status query doubles as the keepalive ("?1", one write).
                 var query = Volatile.Read(ref _continuousJog) == 1 ? MachineCommands.StatusQuery + MachineCommands.JogKeepAlive : MachineCommands.StatusQuery;
                 await WriteAsync(Encoding.ASCII.GetBytes(query), poll: true).ConfigureAwait(false);
@@ -304,6 +324,31 @@ public sealed class CarveraController : IAsyncDisposable
                 return;
             }
         }
+    }
+
+    /// <summary>Publishes <see cref="StatePaths.Stalled"/> when no status report has arrived for <see cref="StallTimeout"/>.</summary>
+    private void CheckForStall()
+    {
+        var silent = TimeSpan.FromMilliseconds(Environment.TickCount64 - Volatile.Read(ref _lastStatusTicks));
+        if (silent < StallTimeout) return;
+        using var _ = State.BeginBatch();
+        State.Set(StatePaths.SilentSeconds, (int)silent.TotalSeconds);
+        if (_stalled) return;
+        _stalled = true;
+        State.Set(StatePaths.Stalled, true);
+        Console.Warning($"The machine has not reported its status for {(int)silent.TotalSeconds} s. It may be busy, or stuck: try Reset, or restart the machine.");
+    }
+
+    private void NoteStatusReceived()
+    {
+        Volatile.Write(ref _lastStatusTicks, Environment.TickCount64);
+        if (State.Get(StatePaths.AwaitingStatus, false)) State.Set(StatePaths.AwaitingStatus, false);
+        if (!_stalled) return;
+        _stalled = false;
+        using var _ = State.BeginBatch();
+        State.Set(StatePaths.Stalled, false);
+        State.Set(StatePaths.SilentSeconds, 0);
+        Console.Info("The machine is reporting its status again.");
     }
 
     private async Task ReadLoopAsync(IMachineStream stream, CancellationToken token)
@@ -365,7 +410,8 @@ public sealed class CarveraController : IAsyncDisposable
         switch (kind)
         {
             case ResponseKind.Status:
-                if (!ResponseParser.TryParseStatus(line, State)) Console.Warning($"Unrecognised status report: {line}");
+                if (ResponseParser.TryParseStatus(line, State)) NoteStatusReceived();
+                else Console.Warning($"Unrecognised status report: {line}");
                 if (LogPolling) Console.Add(ConsoleEntryKind.Received, line);
                 return;
             case ResponseKind.Diagnose:

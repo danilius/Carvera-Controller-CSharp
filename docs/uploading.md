@@ -27,8 +27,10 @@ layouts can show it. The machine's accepted file types are in `machine.fileType`
 
 ## Known limits
 
-- **The `.lz` blocks are stored, not compressed.** They are valid QuickLZ level-1 blocks, so the machine should unpack them,
-  but the upload is as long as the original file. This format has not been checked against a real machine: if uploads fail
-  with *Auto*, set *Send as .lz files* to *Off*.
+- **`.lz` files are real QuickLZ.** `QuickLz` is a port of QuickLZ 1.4.1 at level 3, the level `pyquicklz` (the Python
+  controller's library) is built at. Each 4096-byte block is compressed, or stored when that would not make it smaller. The
+  tests unpack blocks made by `pyquicklz`, and `pyquicklz` unpacks what the C# code makes (set `QUICKLZ_EXPORT_DIR` while
+  running the `QuickLz` tests to write the C# output for checking). Downloads that arrive in `.lz` form are unpacked the same
+  way. The format has not been tried with a real machine: if uploads fail with *Auto*, set *Send as .lz files* to *Off*.
 - Only the plain-text protocol is supported. Machines that use the framed Makera protocol are not handled.
 - No remote file browser yet, so the folder is a setting rather than a picker.

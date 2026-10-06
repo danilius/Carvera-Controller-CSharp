@@ -115,6 +115,9 @@ public static partial class ResponseParser
             store.Set(StatePaths.ToolOffset, 0.0);
             store.Set(StatePaths.ToolTarget, -1);
         }
+        store.Set(StatePaths.ToolLabel, ToolInfo.Label(store.Get(StatePaths.ToolCurrent, -1)));
+        var toolTarget = store.Get(StatePaths.ToolTarget, -1);
+        store.Set(StatePaths.ToolTargetLabel, toolTarget >= 0 ? ToolInfo.Label(toolTarget) : "");
         if (d.TryGetValue("W", out var w) && w.Length > 0) store.Set(StatePaths.ProbeVoltage, w[0]);
         if (d.TryGetValue("L", out var l) && l.Length >= 5)
         {
@@ -136,7 +139,9 @@ public static partial class ResponseParser
             store.Set(StatePaths.JobLines, -1);
             store.Set(StatePaths.JobPlaying, false);
         }
-        store.Set(StatePaths.AtcState, d.TryGetValue("A", out var a) && a.Length > 0 ? (int)a[0] : 0);
+        var atcState = d.TryGetValue("A", out var a) && a.Length > 0 ? (int)a[0] : 0;
+        store.Set(StatePaths.AtcState, atcState);
+        store.Set(StatePaths.AtcLabel, ToolInfo.AtcLabel(atcState));
         if (d.TryGetValue("H", out var h) && h.Length > 0) store.Set(StatePaths.HaltReason, (int)h[0]);
         return true;
     }

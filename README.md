@@ -11,10 +11,15 @@ A Windows controller for Makera Carvera CNC machines, written in C# with [Avalon
 - **Group and reuse.** Define a region (say, your DRO) once and place it in several spots, overriding its size or orientation each time.
 - **Give every state its own graphics.** Each component can change its image, text, colours, border and font per state (normal, hover, pressed, disabled, on/off, selected, alarm...) and on any machine condition you can express, e.g. `machine.state == 'Hold'`.
 - **Edit live.** Save the file and the window rebuilds. Mistakes are reported with their exact location, and the previous layout stays on screen.
+- **Use the layout editor.** `CarveraLayoutEditor.exe` runs beside the Controller (say, on a second screen): click, drag and resize elements in a preview, set their properties in a form, or edit the JSON with completion. Every valid change reaches the running Controller at once. See **[the layout editor](docs/layout-editor.md)**.
 - **See the job in 3D.** The G-code view orbits, pans and zooms like Blender, colours each operation, and lets you scrub through the program. You can see the operations and tools in the file, and change the tool an operation uses.
 - **Stay safe.** If a layout hides or omits Feed Hold, Stop or Reset, the app shows a warning.
 
 ![The desktop layout](docs/images/desktop.png)
+
+**Desktop 2** (`--layout desktop2`) is the same controller reorganised so nothing scrolls: large page tabs, a job setup page with a plan view of the machine bed (choose anchor 1, anchor 2 or a probed position, probe Z, trace the outline, auto-level), the jog controls while you set up and the overrides while a job runs.
+
+![Desktop 2, job setup](docs/images/desktop2-job-setup.png)
 
 Start with the **[layout guide](docs/layouts.md)**. The **[layout reference](docs/layout-reference.md)** lists every element, property and command, and `schema/layout.schema.json` gives your editor autocompletion.
 
@@ -40,10 +45,11 @@ Connect with the bar at the top: **Wi-Fi** (machine IP address; **Find** listens
 | `src/Carvera.Core` | Machine connection and protocol, state store, commands, expressions, simulator, G-code preview parser |
 | `src/Carvera.Layout` | Layout file model, loader, validator, safety analysis, schema generator |
 | `src/Carvera.App` | Avalonia app: layout engine, components, window |
+| `src/Carvera.Editor` | The layout editor: a separate program that edits layout files while the Controller shows them live |
 | `layouts/` | Shipped layouts and their graphics |
 | `schema/` | Generated JSON schema for layout files |
-| `docs/` | [Layout guide](docs/layouts.md), [reference](docs/layout-reference.md), [architecture and porting status](docs/architecture.md) |
-| `tests/` | Protocol, layout and controller tests (`Carvera.Tests`), plus headless UI tests that also render layout previews (`Carvera.App.Tests`) |
+| `docs/` | [Layout guide](docs/layouts.md), [layout editor](docs/layout-editor.md), [reference](docs/layout-reference.md), [architecture and porting status](docs/architecture.md) |
+| `tests/` | Protocol, layout and controller tests (`Carvera.Tests`), plus headless UI tests that also render layout previews (`Carvera.App.Tests`) and drive the layout editor (`Carvera.Editor.Tests`) |
 
 ```powershell
 dotnet test                              # all tests; UI tests run headless

@@ -164,11 +164,39 @@ public static class MachineControls
         for (var r = 0; r < 3; r++) grid.RowDefinitions.Add(new RowDefinition(Track()));
         int Col(int logical) => logical + (hasXY && logical >= 3 ? logical - 2 : 0);
 
+        bool Continuous() => ctx.State.Get<string>(StatePaths.JogButtonMode) == "continuous";
         void Button(string key, string label, string icon, int row, int column)
         {
             var image = images?[key]?.ToString() ?? icon;
             var visuals = WithNormal(buttonVisuals, "imagePlacement", "top");
-            var b = SmallButton(ctx, node, key, label, "jog", CommandArgs.Empty.With("axis", key), visuals, image, "jogButton");
+            // The buttons are in screen directions: with Reverse Y on, the button that points up moves Y-, and its caption says so.
+            var args = CommandArgs.Empty.With("axis", key).With("screen", true);
+            var b = SmallButton(ctx, node, key, label, null, args, visuals, image, "jogButton");
+            var single = key.Length == 2;
+            b.AddEnabledCondition(() => !Continuous()
+                ? ctx.Commands.CanExecute("jog", args)
+                : single && ctx.Commands.CanExecute("jogStart", args),
+                [.. ctx.Commands.AvailabilityPaths("jog"), .. ctx.Commands.AvailabilityPaths("jogStart"), StatePaths.JogButtonMode]);
+            b.Clicked += () => { if (!Continuous()) ctx.Run("jog", args); };
+            var started = false;
+            b.PressStarted += () =>
+            {
+                if (!Continuous() || !single) return;
+                started = true;
+                ctx.Run("jogStart", args);
+            };
+            b.PressEnded += () =>
+            {
+                if (!started) return;
+                started = false;
+                ctx.Run("jogStop", CommandArgs.Empty);
+            };
+            if (key[0] == 'Y' && single)
+            {
+                void Caption() => b.SetDefaultText(TextTemplate.Parse(ctx.State.Get(StatePaths.JogInvertY, false) ? (key == "Y+" ? "Y−" : "Y+") : label));
+                ctx.Watch([StatePaths.JogInvertY], Caption);
+                Caption();
+            }
             Grid.SetRow(b, row);
             Grid.SetColumn(b, Col(column));
             grid.Children.Add(b);

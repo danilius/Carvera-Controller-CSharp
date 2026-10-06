@@ -26,6 +26,24 @@ public sealed class Settings
 
     /// <summary>How the 3D view draws the toolpath: Auto (GPU for large programs), GPU, or CPU.</summary>
     public string ViewerRenderer { get; set; } = "Auto";
+    /// <summary>Colours of the operations in the G-code views: "Layout" (whatever the layout's theme says) or a name from <c>ColorSchemes</c>.</summary>
+    public string GcodeColorScheme { get; set; } = "Layout";
+    /// <summary>The folders last used to open or save local files, most recent first (at most <see cref="RecentFolderCount"/>).</summary>
+    public List<string> RecentFolders { get; set; } = [];
+    public const int RecentFolderCount = 5;
+
+    /// <summary>Moves <paramref name="folder"/> to the front of <see cref="RecentFolders"/>.</summary>
+    public void RememberFolder(string? folder)
+    {
+        if (string.IsNullOrWhiteSpace(folder)) return;
+        RecentFolders.RemoveAll(f => string.Equals(f, folder, StringComparison.OrdinalIgnoreCase));
+        RecentFolders.Insert(0, folder);
+        if (RecentFolders.Count > RecentFolderCount) RecentFolders.RemoveRange(RecentFolderCount, RecentFolders.Count - RecentFolderCount);
+        Save();
+    }
+
+    /// <summary>The most recent folder that still exists, or null.</summary>
+    public string? LastFolder => RecentFolders.FirstOrDefault(System.IO.Directory.Exists);
 
     // File upload to the machine.
     public string UploadDirectory { get; set; } = "/sd/gcodes";
@@ -51,6 +69,34 @@ public sealed class Settings
     public bool GamepadInvertY { get; set; }
     public bool GamepadInvertZ { get; set; }
     public bool GamepadInvertA { get; set; }
+
+    /// <summary>The values typed into the probing panel, per probing family: parameter code to text.</summary>
+    public Dictionary<string, Dictionary<string, string>> ProbeSettings { get; set; } = [];
+
+    // Jogging from the on-screen pad and the keys.
+    /// <summary>"step" or "continuous".</summary>
+    public string JogButtonMode { get; set; } = "step";
+    public bool JogKeyboard { get; set; } = true;
+    /// <summary>Y jogs the other way round on the jog pad and keys (the Carvera's Y axis runs opposite to what the pad's arrows suggest).</summary>
+    public bool JogInvertY { get; set; } = true;
+
+    /// <summary>The ring-gauge drift correction: applied after XY-zeroing probes while enabled.</summary>
+    public bool RingGaugeEnabled { get; set; }
+    public double RingGaugeX { get; set; }
+    public double RingGaugeY { get; set; }
+
+    /// <summary>Read the machine's config.txt once per connection (for the bed picture and anchor positions), when the machine is idle.</summary>
+    public bool AutoReadConfig { get; set; } = true;
+
+    /// <summary>What the job setup page remembers: the origin choice, the steps to run and the auto-level grid.</summary>
+    public Carvera.Core.Job.JobSettings? JobSetup { get; set; }
+    /// <summary>Draw the machine bed picture under the toolpath and on the job setup page.</summary>
+    public bool ShowBedImage { get; set; } = true;
+
+    /// <summary>Where the Z probe is: "work" or "path" origin, and the X and Y offset from it.</summary>
+    public string ZProbeOrigin { get; set; } = "work";
+    public double ZProbeX { get; set; }
+    public double ZProbeY { get; set; }
 
     /// <summary>Pendant macros 1-10. Unnamed macros are not offered to the pendant.</summary>
     public List<MacroSetting> Macros { get; set; } = [];

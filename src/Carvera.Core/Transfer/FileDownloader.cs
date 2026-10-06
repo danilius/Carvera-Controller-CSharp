@@ -103,9 +103,21 @@ public static class FileDownloader
                     return DownloadResult.Failed;
             }
 
-            File.Move(temporary, localPath, overwrite: true);
+            var unpacked = false;
             if (result.LooksCompressed)
-                console.Warning($"{name} arrived QuickLZ-compressed and was saved as it came; unpacking is not supported yet.");
+            {
+                try
+                {
+                    File.WriteAllBytes(temporary, LzFile.Read(File.ReadAllBytes(temporary)));
+                    unpacked = true;
+                }
+                catch (Exception ex) when (ex is InvalidDataException or NotSupportedException)
+                {
+                    console.Warning($"{name} arrived QuickLZ-compressed but could not be unpacked ({ex.Message}); it was saved as it came.");
+                }
+            }
+            File.Move(temporary, localPath, overwrite: true);
+            if (unpacked) console.Info($"{name} arrived compressed and was unpacked.");
             Finish($"Downloaded {name}.");
             console.Info($"Downloaded {name} ({result.Bytes:N0} bytes) to {localPath}.");
             return DownloadResult.Success;

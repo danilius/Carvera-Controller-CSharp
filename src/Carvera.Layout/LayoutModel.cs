@@ -70,7 +70,8 @@ public sealed class LayoutNode
     public override string ToString() => $"{Type} ({Path})";
 }
 
-public sealed record LayoutShortcut(string Key, string Command, JsonObject? Args, string Path);
+/// <summary>A key bound to a command. <paramref name="Release"/> runs when the key is let go (for jogging while held); with <paramref name="Repeat"/> false, holding the key does not run the command again.</summary>
+public sealed record LayoutShortcut(string Key, string Command, JsonObject? Args, string Path, string? Release = null, JsonObject? ReleaseArgs = null, bool Repeat = true);
 
 public sealed record LayoutWindow(double? Width, double? Height, double? MinWidth, double? MinHeight, string? Title);
 

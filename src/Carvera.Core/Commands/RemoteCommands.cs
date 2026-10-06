@@ -109,6 +109,42 @@ public static class RemoteCommands
         });
         registry.Register(new CommandDefinition
         {
+            Id = "configBackup", Title = "Back up configuration", Category = "Machine files",
+            Description = "Copies the machine's configuration files (config.txt, config.default, custom_tool_slots.txt, the compensation grids) from the SD card into a folder on your computer. Only available while the machine is idle. Press it again during the backup to cancel.",
+            Parameters = [new("folder", "string", "Where to put the files; asks when omitted")],
+            CanExecute = (c, _) => CanTransfer(c),
+            DependsOn = [StatePaths.MachineState, StatePaths.TransferActive],
+            Execute = (c, a) => RunTransfer(async token =>
+            {
+                var folder = a.GetString("folder") ?? await host.PickFolderAsync("Choose where to back up the machine's configuration");
+                if (folder is null) return;
+                var result = await Config.ConfigBackup.RunAsync(c.Controller, folder, TimeSpan.FromSeconds(1.5), token);
+                if (result.Cancelled) return;
+                if (result.Failed.Count > 0) c.Console.Error($"Could not back up: {string.Join(", ", result.Failed)}.");
+                if (result.Saved.Count > 0) c.Console.Info($"Backed up {string.Join(", ", result.Saved)} to {folder}.");
+            }),
+        });
+        registry.Register(new CommandDefinition
+        {
+            Id = "updateFirmware", Title = "Update firmware", Category = "Machine files",
+            Description = "Uploads a firmware file (.bin) to /sd/firmware.bin, after asking, then offers to reset the machine so it installs it. Only available while the machine is idle. Press it again during the upload to cancel.",
+            Parameters = [new("path", "string", "The firmware file; asks when omitted"), new("confirmed", "bool", "Skip the questions")],
+            CanExecute = (c, _) => CanTransfer(c),
+            DependsOn = [StatePaths.MachineState, StatePaths.TransferActive],
+            Execute = (c, a) => RunTransfer(async token =>
+            {
+                var path = a.GetString("path") ?? await host.PickOpenPathAsync("Choose the firmware file", "*.bin");
+                if (path is null) return;
+                if (a.GetBool("confirmed") != true && !await host.ConfirmAsync($"Update the firmware with “{Path.GetFileName(path)}”? The file is sent to the machine, which installs it after a reset. Do not switch the machine off while it installs.")) return;
+                // Firmware goes as it is: no .lz packing, and always to the exact name the machine looks for.
+                var result = await FileUploader.UploadAsync(c.Controller, path, new UploadOptions(RemotePath: "/sd/firmware.bin"), token);
+                if (result != UploadResult.Success) return;
+                if (a.GetBool("confirmed") == true || await host.ConfirmAsync("The update has been sent. Reset the machine now so it installs it?"))
+                    await registry.ExecuteAsync("reset");
+            }),
+        });
+        registry.Register(new CommandDefinition
+        {
             Id = "remotePlay", Title = "Run selected file", Category = "Machine files",
             Description = "Runs the selected file on the machine (like playFile). Only available while the machine is idle.",
             CanExecute = (c, a) => HasFile(c, a) && c.State.Get<string>(StatePaths.MachineState) == "Idle",

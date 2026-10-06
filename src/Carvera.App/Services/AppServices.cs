@@ -2,6 +2,7 @@ using Avalonia.Controls;
 using Carvera.App.Layout;
 using Carvera.Core;
 using Carvera.Core.Commands;
+using Carvera.Core.Config;
 using Carvera.Core.Gcode;
 using Carvera.Core.State;
 using Carvera.Core.Transfer;
@@ -22,10 +23,50 @@ public sealed class AppServices : IDisposable
         AppCommands.Register(Commands, host);
         Remote = new RemoteBrowser(controller, settings.UploadDirectory);
         RemoteCommands.Register(Commands, Remote, Transfers, host);
+        ToolCommands.Register(Commands, host);
+        MachineConfig = new MachineConfigStore(controller);
+        ConfigCommands.Register(Commands, MachineConfig, host);
+        var probeStore = new SettingsProbeStore(settings);
+        ProbeCommands.Register(Commands, host, probeStore);
+        WorkCommands.Register(Commands, host, MachineConfig);
+        JobCommands.Register(Commands, host, probeStore, MachineConfig);
+        // The jog options live in the state store (commands and layouts use them) and are kept in the settings.
+        State.Set(StatePaths.JogButtonMode, settings.JogButtonMode);
+        State.Set(StatePaths.JogKeyboard, settings.JogKeyboard);
+        State.Set(StatePaths.JogInvertY, settings.JogInvertY);
+        State.Set(StatePaths.ViewBedImage, settings.ShowBedImage);
+        State.Changed += paths =>
+        {
+            if (paths.Contains(StatePaths.ViewBedImage) && State.Get(StatePaths.ViewBedImage, true) != settings.ShowBedImage)
+            {
+                settings.ShowBedImage = State.Get(StatePaths.ViewBedImage, true);
+                settings.Save();
+            }
+            if (!paths.Contains(StatePaths.JogButtonMode) && !paths.Contains(StatePaths.JogKeyboard) && !paths.Contains(StatePaths.JogInvertY)) return;
+            settings.JogButtonMode = State.Get(StatePaths.JogButtonMode, "step");
+            settings.JogKeyboard = State.Get(StatePaths.JogKeyboard, true);
+            settings.JogInvertY = State.Get(StatePaths.JogInvertY, true);
+            settings.Save();
+        };
+        // Once per connection, when the machine first reports idle, read its config.txt: the bed picture and the anchor positions need it.
+        var configRequested = false;
+        State.Changed += paths =>
+        {
+            if (!paths.Contains(StatePaths.Connected) && !paths.Contains(StatePaths.MachineState)) return;
+            if (!State.Get(StatePaths.Connected, false)) { configRequested = false; return; }
+            if (configRequested || !settings.AutoReadConfig || MachineConfig.Loaded || State.Get<string>(StatePaths.MachineState) != "Idle") return;
+            configRequested = true;
+            _ = Task.Run(async () =>
+            {
+                try { await MachineConfig.LoadAsync(); }
+                catch (Exception ex) { Console.Warning("Could not read the machine's settings: " + ex.Message); }
+            });
+        };
         Pendants = new PendantService(this);
     }
 
     public PendantService Pendants { get; }
+    public MachineConfigStore MachineConfig { get; }
 
     /// <summary>Holds the cancellation of the file transfer in progress; only one runs at a time.</summary>
     public TransferGate Transfers { get; } = new();
@@ -57,6 +98,14 @@ public sealed class AppServices : IDisposable
             State.Set(StatePaths.LocalFileLines, program?.Lines.Count ?? 0);
             State.Set(StatePaths.FileOperations, program?.Operations.Count ?? 0);
             State.Set(StatePaths.FileModified, modified);
+            var hasBounds = program is { Segments.Count: > 0 };
+            State.Set(StatePaths.FileHasBounds, hasBounds);
+            State.Set(StatePaths.FileXMin, hasBounds ? program!.Min.X : 0.0);
+            State.Set(StatePaths.FileXMax, hasBounds ? program!.Max.X : 0.0);
+            State.Set(StatePaths.FileYMin, hasBounds ? program!.Min.Y : 0.0);
+            State.Set(StatePaths.FileYMax, hasBounds ? program!.Max.Y : 0.0);
+            State.Set(StatePaths.FileZMin, hasBounds ? program!.Min.Z : 0.0);
+            State.Set(StatePaths.FileZMax, hasBounds ? program!.Max.Z : 0.0);
             if (!keepPreview)
             {
                 SetPreviewSegment(-1);

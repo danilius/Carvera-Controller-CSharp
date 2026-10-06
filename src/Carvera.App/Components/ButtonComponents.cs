@@ -56,7 +56,34 @@ public static class ButtonComponents
         void Update() => host.SetStates(IsOn() ? ["on"] : ["off"], ["on", "off"]);
         ctx.Watch(bind?.Paths ?? [], Update);
         Update();
+        if (node.GetString("look") == "switch") return new SwitchContent(host, ctx);
         return new VisualContent(host, ctx.Images);
+    }
+
+    /// <summary>A sliding on/off switch with the caption beside it, for a toggle with look "switch".</summary>
+    private sealed class SwitchContent : StackPanel
+    {
+        public SwitchContent(ComponentHost host, BuildContext ctx)
+        {
+            Orientation = Avalonia.Layout.Orientation.Horizontal;
+            Spacing = 10;
+            var text = new TextBlock { VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center };
+            var knob = new Border { Width = 18, Height = 18, CornerRadius = new Avalonia.CornerRadius(9), Background = Avalonia.Media.Brushes.White, Margin = new Avalonia.Thickness(2), HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left };
+            var track = new Border { Width = 42, Height = 22, CornerRadius = new Avalonia.CornerRadius(11), Child = knob, VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center };
+            Children.Add(track);
+            Children.Add(text);
+            void Update()
+            {
+                var on = host.HasState("on");
+                knob.HorizontalAlignment = on ? Avalonia.Layout.HorizontalAlignment.Right : Avalonia.Layout.HorizontalAlignment.Left;
+                track.Background = ctx.Theme.TokenBrush(on ? "accent" : "lampOff");
+                text.Text = host.EffectiveText;
+                text.IsVisible = !string.IsNullOrEmpty(host.EffectiveText);
+                if (host.Effective.Foreground is { } fg && ctx.Theme.Brush(fg) is { } brush) text.Foreground = brush;
+            }
+            host.VisualChanged += _ => Update();
+            Update();
+        }
     }
 
     public sealed record Option(object? Value, string Text, string? Image);

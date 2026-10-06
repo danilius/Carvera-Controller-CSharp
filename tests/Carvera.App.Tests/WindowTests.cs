@@ -91,7 +91,7 @@ public class WindowTests
         // Off-screen renders of each layout, connected to the simulator (useful for documentation and review).
         var output = Environment.GetEnvironmentVariable("CARVERA_SCREENSHOT_DIR") is { Length: > 0 } dir ? dir : Path.Combine(AppContext.BaseDirectory, "screenshots");
         Directory.CreateDirectory(output);
-        foreach (var (name, width, height) in new[] { ("desktop", 1400, 900) })
+        foreach (var (name, width, height) in new[] { ("desktop", 1400, 900), ("desktop2", 1400, 900) })
         {
             var window = new MainWindow(["--layout", name, "--connect", "simulator"]) { Width = width, Height = height };
             window.Show();
@@ -112,9 +112,91 @@ public class WindowTests
     }
 
     [AvaloniaFact]
+    public async Task SettingsSearchFindsWordsInLabelsAndDescriptions()
+    {
+        var window = new MainWindow(["--layout", "desktop2"]) { Width = 1280, Height = 800 };
+        window.Show();
+        await Settle(window);
+        window.OpenSettings();
+        await Settle(window, 100);
+        var page = window.SettingsPage!;
+        var search = page.GetVisualDescendants().OfType<TextBox>().First(t => t.PlaceholderText is not null && t.PlaceholderText.StartsWith("Search"));
+        var groups = page.GetVisualDescendants().OfType<ListBox>().First();
+        var allGroups = groups.Items.Cast<object>().ToList();
+        Assert.Contains("Machine settings", allGroups.Cast<string>());
+
+        // A word that is only in a description: "answer" is in the retry setting's explanation, not in its label.
+        search.Text = "does not answer";
+        await Settle(window, 100);
+        Assert.Equal(["Connection"], groups.Items.Cast<string>());
+
+        // A word in a label of another group, in any letter case.
+        search.Text = "STICK dead ZONE";
+        await Settle(window, 100);
+        Assert.Equal(["Gamepad"], groups.Items.Cast<string>());
+
+        // A group's own name shows the whole group.
+        search.Text = "macros";
+        await Settle(window, 100);
+        Assert.Equal(["Macros"], groups.Items.Cast<string>());
+
+        search.Text = "zzzz nothing like this";
+        await Settle(window, 100);
+        Assert.Empty(groups.Items.Cast<string>());
+
+        search.Text = "";
+        await Settle(window, 100);
+        Assert.Equal(allGroups, groups.Items.Cast<object>().ToList());
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public async Task RendersEveryPageOfDesktop2()
+    {
+        var output = Environment.GetEnvironmentVariable("CARVERA_SCREENSHOT_DIR") is { Length: > 0 } dir ? dir : Path.Combine(AppContext.BaseDirectory, "screenshots");
+        Directory.CreateDirectory(output);
+        var window = new MainWindow(["--layout", "desktop2", "--connect", "simulator"]) { Width = 1400, Height = 900 };
+        window.Show();
+        await Settle(window, 800);
+        var sample = Path.Combine(AppContext.BaseDirectory, "samples", "demo.nc");
+        if (File.Exists(sample)) await window.OpenFileAsync(sample);
+        await Settle(window, 300);
+        var pages = window.GetVisualDescendants().OfType<TabControl>().First();
+        for (var i = 0; i < pages.ItemCount; i++)
+        {
+            pages.SelectedIndex = i;
+            await Settle(window, 250);
+            var frame = window.CaptureRenderedFrame();
+            Assert.NotNull(frame);
+            #pragma warning disable CS0618
+            frame!.Save(Path.Combine(output, $"desktop2-page{i}.png"));
+            #pragma warning restore CS0618
+        }
+        window.Close();
+
+        // While a job runs the right-hand column swaps the jog controls for the overrides. (Not connected, so no status report resets the state.)
+        var idle = new MainWindow(["--layout", "desktop2"]) { Width = 1400, Height = 900 };
+        idle.Show();
+        await Settle(idle, 300);
+        if (File.Exists(sample)) await idle.OpenFileAsync(sample);
+        Assert.NotNull(idle.Session!.FindById("jogPanel"));
+        Assert.True(idle.Session.FindById("jogPanel")!.IsVisible);
+        Assert.False(idle.Session.FindById("runningPanels")!.IsVisible);
+        idle.Services.State.Set("job.playing", true);
+        await Settle(idle, 300);
+        Assert.False(idle.Session.FindById("jogPanel")!.IsVisible);
+        Assert.True(idle.Session.FindById("runningPanels")!.IsVisible);
+        var running = idle.CaptureRenderedFrame();
+        #pragma warning disable CS0618
+        running!.Save(Path.Combine(output, "desktop2-running.png"));
+        #pragma warning restore CS0618
+        idle.Close();
+    }
+
+    [AvaloniaFact]
     public async Task SettingsButtonFlipsBetweenLayoutAndSettingsInEveryLayout()
     {
-        foreach (var name in new[] { "desktop" })
+        foreach (var name in new[] { "desktop", "desktop2" })
         {
             var window = new MainWindow(["--layout", name]) { Width = 1280, Height = 800 };
             window.Show();
@@ -144,7 +226,7 @@ public class WindowTests
             Assert.True(page.IsEffectivelyVisible);
             // Each group has a header, and the list on the left names the same groups.
             var texts = page.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text).ToList();
-            string[] groups = ["General", "Connection", "3D view", "File upload", "Pendants", "CYD pendant", "Gamepad", "Macros"];
+            string[] groups = ["General", "Connection", "Jogging", "3D view", "File upload", "Pendants", "CYD pendant", "Gamepad", "Macros", "Machine settings"];
             foreach (var group in groups) Assert.Contains(group, texts);
             Assert.Contains(page.GetVisualDescendants().OfType<ListBox>(), l => l.Items.Cast<object>().SequenceEqual(groups));
 

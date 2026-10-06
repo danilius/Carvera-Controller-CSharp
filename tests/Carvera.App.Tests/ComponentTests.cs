@@ -141,4 +141,21 @@ public class ComponentTests
         h.Pump();
         Assert.True(h.Host("t").IsVisible);
     }
+
+    [AvaloniaFact]
+    public void AToggleCanBeDrawnAsASlidingSwitch()
+    {
+        using var h = new Harness("""
+            { "root": { "type": "stack", "children": [
+              { "type": "toggle", "id": "sw", "look": "switch", "text": "Light", "bind": "switch.light", "command": "light" },
+              { "type": "button", "command": "feedHold" }, { "type": "button", "command": "stop" }, { "type": "button", "command": "reset" } ] } }
+            """, 400, 200);
+        var host = h.Host("sw");
+        Assert.DoesNotContain(host.GetVisualDescendants().OfType<Carvera.App.Layout.VisualContent>(), _ => true);
+        var knob = host.GetVisualDescendants().OfType<Border>().First(b => b.Width == 18);
+        Assert.Equal(Avalonia.Layout.HorizontalAlignment.Left, knob.HorizontalAlignment);
+        h.Services.State.Set("switch.light", true);
+        h.Pump();
+        Assert.Equal(Avalonia.Layout.HorizontalAlignment.Right, knob.HorizontalAlignment);
+    }
 }

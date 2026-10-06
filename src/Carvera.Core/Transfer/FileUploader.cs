@@ -6,7 +6,7 @@ namespace Carvera.Core.Transfer;
 
 public enum UploadResult { Success, Failed, Cancelled }
 
-public sealed record UploadOptions(string RemoteDirectory = "/sd/gcodes", bool Compress = false, TimeSpan? DecompressionTimeout = null)
+public sealed record UploadOptions(string RemoteDirectory = "/sd/gcodes", bool Compress = false, TimeSpan? DecompressionTimeout = null, string? RemotePath = null)
 {
     /// <summary>Compression is offered when the machine says it accepts <c>.lz</c> files (<c>ftype = lz</c>).</summary>
     public static bool MachineAcceptsLz(string? fileType) => fileType?.Contains("lz", StringComparison.OrdinalIgnoreCase) == true;
@@ -21,6 +21,7 @@ public static class FileUploader
 {
     public static string RemotePathFor(string localPath, UploadOptions options)
     {
+        if (options.RemotePath is { Length: > 0 } exact) return exact.Replace('\\', '/');
         var name = Path.GetFileName(localPath);
         return options.RemoteDirectory.TrimEnd('/', '\\').Replace('\\', '/') + "/" + name;
     }
@@ -38,6 +39,7 @@ public static class FileUploader
         var name = Path.GetFileName(localPath);
         if (!controller.IsConnected) throw new InvalidOperationException("Not connected to a machine.");
         if (!File.Exists(localPath)) throw new FileNotFoundException($"'{localPath}' does not exist.", localPath);
+        if (options.Compress && options.RemotePath is not null) throw new ArgumentException("A file sent to an exact path cannot be sent as .lz.", nameof(options));
 
         void Publish(string phase, double percent, bool active = true)
         {

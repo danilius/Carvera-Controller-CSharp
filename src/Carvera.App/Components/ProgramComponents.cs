@@ -161,13 +161,13 @@ public static class ProgramComponents
         Update();
 
         var row = new FlexPanel { Orientation = Orientation.Horizontal, Spacing = 4 };
-        void Add(Control c, SizeSpec width)
+        void Add(Control c, SizeSpec width, double height = 30)
         {
-            FlexPanel.SetSlot(c, new SlotSpec(width, SizeSpec.Pixels(30), VAlign: SlotAlign.Center));
+            FlexPanel.SetSlot(c, new SlotSpec(width, SizeSpec.Pixels(height), VAlign: SlotAlign.Center));
             row.Children.Add(c);
         }
         foreach (var b in new[] { start, back, play, forward, end }) Add(b, SizeSpec.Pixels(32));
-        Add(slider, SizeSpec.Fill);
+        Add(slider, SizeSpec.Fill, 36); // the slider's template needs more than the 30 px of the buttons
         Add(position, SizeSpec.Auto);
         Add(clear, SizeSpec.Pixels(32));
 

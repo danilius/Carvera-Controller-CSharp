@@ -68,15 +68,15 @@ public class UploadTests : IDisposable
         var file = output.ToArray();
 
         Assert.Equal((size + LzFile.BlockSize - 1) / LzFile.BlockSize, blocks);
-        Assert.Equal(original, LzFile.ReadStored(file));
-        // The first block: 4-byte big-endian length, then a stored level-1 QuickLZ block.
+        Assert.Equal(original, LzFile.Read(file));
+        // The first block: 4-byte big-endian length, then a stored level-3 QuickLZ block (random data does not compress).
         var firstLength = (file[0] << 24) | (file[1] << 16) | (file[2] << 8) | file[3];
         var firstSize = Math.Min(size, LzFile.BlockSize);
         Assert.Equal(firstSize < 216 ? 3 + firstSize : 9 + firstSize, firstLength);
-        Assert.Equal(firstSize < 216 ? 0x44 : 0x46, file[4]);
+        Assert.Equal(firstSize < 216 ? 0x4C : 0x4E, file[4]);
         // Corrupting the data breaks the trailer check.
         file[^3] ^= 0xFF;
-        Assert.Throws<InvalidDataException>(() => LzFile.ReadStored(file));
+        Assert.Throws<InvalidDataException>(() => LzFile.Read(file));
     }
 
     [Fact]

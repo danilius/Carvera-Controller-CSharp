@@ -53,21 +53,30 @@ Carvera Controller C# is a Windows desktop controller for Makera Carvera CNC mac
 - **`StateBinder`** moves state changes from the communication threads onto the UI thread, coalescing bursts.
 - **`MainWindow`** is the only fixed UI: an area for error and safety banners above the layout. It handles live reload (`FileSystemWatcher`), falling back to the embedded default layout, layout shortcuts, and the `IAppHost` services.
 
+## Layout editor (`src/Carvera.Editor`)
+
+A separate WinExe (`CarveraLayoutEditor`) that references `Carvera.Layout` and `Carvera.App`, so its preview is the real layout engine. See [layout-editor.md](layout-editor.md) for how it is used.
+
+- **Model** (`Model/`, no UI): `EditorDocument` keeps the text as the truth, the parsed JSON tree, undo snapshots and the loader's diagnostics (the same loader and validator as the Controller). `ElementOps` and `PartOps` are the structural edits (insert, move, wrap, regions, styles, shortcuts) on the JSON tree; `JsonPath`/`PathIndex` map the loader's paths (`root.children[2].width`) to JSON nodes and text positions; `JsonFormatter` writes files in the shipped style; `CompletionEngine` works out what can be typed at a caret; `LiveFile` writes atomically; `ControllerLink` is the pipe client.
+- **Views** (`Views/`, `Preview/`): the tree, the palette, the inspector (forms built from `ComponentCatalog` by property kind, `PropertyEditors`), the code tab (AvaloniaEdit), and `PreviewSurface`, which builds a `LayoutSession` against a controller "connected" to a stream that swallows everything, draws the selection overlay, and turns pointer input into selection, resize and drops. `DragService` implements drag and drop inside the window.
+- **Live link to the Controller**: the editor writes the file; the Controller's `MainWindow` watches every layout folder, resolves the current layout by name (so a copy saved in the user's folder takes over from the built-in one), skips the reload when nothing changed, and restores `ViewState` (tabs, scrolling, splitters, collapsed panels). `EditorLink` (Controller side) and `ControllerLink` (editor side) are a per-user named pipe carrying `reveal`, `inspect` (pick mode) and `load` requests and `layout`/`picked` events, never machine commands. Pipe writes go through `LineWriter` so the UI thread never waits for the other program.
+
 ## 3D view renderers
 
 The `toolpath` view has two renderers, chosen by *Settings > 3D view*:
 
 - **CPU** rebuilds one Avalonia geometry per colour every frame and projects every segment on the CPU. It is exact and fine
   for typical files.
-- **GPU** (`GlPathLayer`) keeps the whole path in one OpenGL vertex buffer. Each vertex carries its position and its segment
-  number, operation, G-code line and rapid flag; the vertex shader picks the colour from those and from uniforms (scrub
-  position, selected operation, executed line), so scrubbing, selecting an operation and job progress never rebuild or re-upload
-  anything. The camera reaches the shader as one matrix (`ViewMatrix`), which is tested to land on the same pixels as the CPU
+- **GPU** (`GlPathLayer`) keeps the whole path in one OpenGL buffer. Each segment is one instance holding its two ends and its
+  segment number, operation, G-code line and rapid flag; the vertex shader expands it into a screen-space quad of a set pixel
+  width (OpenGL ES has no wide lines) and picks the colour from those numbers and from uniforms (scrub position, selected
+  operation, executed line), so scrubbing, selecting an operation and job progress never rebuild or re-upload anything. Rapid
+  moves are dashed in the fragment shader. The camera reaches the shader as one matrix (`ViewMatrix`), which is tested to land on the same pixels as the CPU
   projection. The grid, tool, gizmo and captions stay 2D layers beneath and above it.
 
 *Auto* (the default) uses the GPU for programs of 50,000 segments or more. The view falls back to the CPU renderer by itself if
 shaders fail to compile or no OpenGL context is available (no frame within 3 seconds, as on a remote desktop), and says why in
-the console. On Windows Avalonia's OpenGL is ANGLE's OpenGL ES 3.0, where lines are one pixel wide.
+the console. On Windows Avalonia's OpenGL is ANGLE's OpenGL ES 3.0, which needs the instanced quads above.
 
 `CarveraController.exe --check-gpu` opens a window with a 120,000-segment test path, saves a screen capture and the scrubbed
 version, and writes a report to `%TEMP%\carvera-gpu-check.txt`. It is a quick way to see whether the GPU renderer works on a
@@ -92,12 +101,16 @@ Done:
 - Running files already on the machine (`playFile`)
 - Settings page, window placement, auto-connect at start-up and reconnection after a dropped connection
 - CYD pendant (see `pendants.md`)
-- File upload over XMODEM, with an optional `.lz` wrapper (see `uploading.md`)
+- File upload over XMODEM, with QuickLZ-compressed `.lz` files (see `uploading.md`)
+- Remote file browser, download and view, firmware upload, configuration backup
+- Tool widgets, probing (all families), ring-gauge drift check, Z probe position, margin, auto-level, XYZ probe
+- Machine configuration editor, set work origin from an anchor, rotation, diagnose lamps
+- Gamepad, operation colour schemes, remembered folders for the file pickers
+- Desktop 2: job setup page (plan view of the bed, origin from anchor 1, anchor 2 or a probed position, Z probe, outline, auto-level), jog modes (click or hold, keys) with Y reversal, bed picture under the 3D view, machine settings and a search on the settings page
 
 Not yet ported from the Python controller:
 
-- Remote file browser, download, upload-and-run, firmware upload, real QuickLZ compression, the framed Makera protocol
-- Probing screens, auto-levelling setup, WCS settings dialog, rotation
-- Machine configuration editor, firmware update
-- Pendants other than the CYD (gamepad, WHB04)
+- The framed Makera protocol
+- The WHB04 pendant
+- Facing wizard, CMM workbench, camera and tool-visualisation addons, laser workflows
 - Translations

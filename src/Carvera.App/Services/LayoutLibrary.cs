@@ -10,7 +10,15 @@ public sealed class LayoutLibrary(IEnumerable<string> folders)
 {
     private readonly string[] _folders = folders.ToArray();
 
-    public static LayoutLibrary Default() => new([
+    public static LayoutLibrary Default()
+    {
+        // Created up front so a running Controller can watch it for layouts the editor saves there later.
+        try { System.IO.Directory.CreateDirectory(System.IO.Path.Combine(Settings.Directory, "layouts")); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+        return Create();
+    }
+
+    private static LayoutLibrary Create() => new([
         System.IO.Path.Combine(AppContext.BaseDirectory, "layouts"),
         System.IO.Path.Combine(Settings.Directory, "layouts"),
     ]);

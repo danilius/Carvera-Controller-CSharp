@@ -2,5 +2,7 @@
   <ItemGroup>
     <PackageReference Include="System.IO.Ports" Version="10.0.12" />
     <InternalsVisibleTo Include="Carvera.Tests" />
+    <EmbeddedResource Include="Config\config_c1.json" LogicalName="config_c1.json" />
+    <EmbeddedResource Include="Config\config_ca1.json" LogicalName="config_ca1.json" />
   </ItemGroup>
 </Project>
