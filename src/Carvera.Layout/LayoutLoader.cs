@@ -87,7 +87,9 @@ public static class LayoutLoader
                 var path = $"shortcuts[{i}]";
                 if (shortcutArray[i] is JsonObject o && o["key"] is JsonValue k && k.TryGetValue<string>(out var key) &&
                     o["command"] is JsonValue c && c.TryGetValue<string>(out var command))
-                    shortcuts.Add(new LayoutShortcut(key, command, o["args"] as JsonObject, path));
+                    shortcuts.Add(new LayoutShortcut(key, command, o["args"] as JsonObject, path,
+                        o["release"] is JsonValue r && r.TryGetValue<string>(out var release) ? release : null, o["releaseArgs"] as JsonObject,
+                        !(o["repeat"] is JsonValue rp && rp.TryGetValue<bool>(out var repeat) && !repeat)));
                 else bag.Error(path, "A shortcut needs 'key' and 'command' strings.");
             }
 

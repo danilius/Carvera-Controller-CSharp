@@ -59,6 +59,19 @@ public static class StatePaths
     public const string DriftTitle = "probe.drift.title", DriftText = "probe.drift.text", DriftPrimary = "probe.drift.primary";
     public const string DriftPoints = "probe.drift.points", DriftResult = "probe.drift.result", DriftStored = "probe.drift.stored";
     public const string DriftApplyTip = "probe.drift.applyTip", DriftPersist = "probe.drift.persist";
+    // The bed (BedGeometry) and the job setup page (JobSetup).
+    public const string BedSizeX = "bed.sizeX", BedSizeY = "bed.sizeY", BedAnchor1X = "bed.anchor1X", BedAnchor1Y = "bed.anchor1Y";
+    public const string BedAnchorWidth = "bed.anchorWidth", BedAnchorLength = "bed.anchorLength", BedAnchor2X = "bed.anchor2X", BedAnchor2Y = "bed.anchor2Y";
+    /// <summary>True when the machine bed picture is drawn under the toolpath and on the job setup page.</summary>
+    public const string ViewBedImage = "view.bedImage";
+    /// <summary>"anchor1", "anchor2" or "probe": where the work origin comes from.</summary>
+    public const string JobOrigin = "job.origin";
+    public const string JobOriginOffsetX = "job.originX", JobOriginOffsetY = "job.originY";
+    public const string JobMargin = "job.margin", JobZProbe = "job.zprobe", JobLeveling = "job.leveling", JobGotoOrigin = "job.gotoOrigin";
+    public const string JobLevelX = "job.levelX", JobLevelY = "job.levelY", JobLevelXn = "job.levelXn", JobLevelXp = "job.levelXp", JobLevelYn = "job.levelYn", JobLevelYp = "job.levelYp";
+    public const string JobLevelText = "job.levelText", JobOriginText = "job.originText", JobBoundsText = "job.boundsText", JobPathOriginText = "job.pathOriginText";
+    /// <summary>What the settings page's search box holds: the machine settings list shows only the settings that match.</summary>
+    public const string SettingsSearch = "settings.search";
     public const string ZProbeOrigin = "zprobe.origin", ZProbeX = "zprobe.x", ZProbeY = "zprobe.y", ZProbeLabel = "zprobe.label";
 
     public const string LaserMode = "laser.mode";
@@ -76,6 +89,12 @@ public static class StatePaths
     public const string JogFeed = "jog.feed";
     /// <summary>"step" or "continuous": how a pendant jogs (a gamepad can switch modes).</summary>
     public const string JogMode = "jog.mode";
+    /// <summary>"step" (one click, one step) or "continuous" (move while the button or key is held): the on-screen jog pad and keyboard jogging.</summary>
+    public const string JogButtonMode = "jog.buttonMode";
+    /// <summary>True when the jog keys of the layout act (they follow <see cref="JogButtonMode"/>).</summary>
+    public const string JogKeyboard = "jog.keyboard";
+    /// <summary>True when Y jogs the other way round on the jog pad and the jog keys (up moves Y-).</summary>
+    public const string JogInvertY = "jog.invertY";
 
     public const string LocalFile = "file.local";
     public const string LocalFileName = "file.localName";

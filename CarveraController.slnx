@@ -3,9 +3,11 @@
     <Project Path="src/Carvera.Core/Carvera.Core.csproj" />
     <Project Path="src/Carvera.Layout/Carvera.Layout.csproj" />
     <Project Path="src/Carvera.App/Carvera.App.csproj" />
+    <Project Path="src/Carvera.Editor/Carvera.Editor.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Carvera.Tests/Carvera.Tests.csproj" />
     <Project Path="tests/Carvera.App.Tests/Carvera.App.Tests.csproj" />
+    <Project Path="tests/Carvera.Editor.Tests/Carvera.Editor.Tests.csproj" />
   </Folder>
 </Solution>

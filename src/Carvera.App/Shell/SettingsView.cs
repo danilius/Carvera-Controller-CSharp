@@ -2,8 +2,10 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.LogicalTree;
 using Avalonia.Threading;
 using Carvera.App.Services;
+using Carvera.Layout;
 using Carvera.Core.Pendant;
 using Carvera.Core.State;
 
@@ -31,6 +33,10 @@ public sealed class SettingsView : UserControl
     private readonly ListBox _groups = new() { Background = Brushes.Transparent, BorderThickness = new Thickness(0), Margin = new Thickness(8, 12) };
     private readonly Dictionary<string, Control> _headers = new();
     private TextBlock? _pendantStatus, _gamepadStatus;
+    private readonly List<(string Name, TextBlock Header, Border Card, StackPanel Rows)> _sections = [];
+    private readonly TextBox _search = new() { PlaceholderText = "Search all settings…", Width = 380, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(24, 0, 0, 0) };
+    private readonly TextBlock _noResults = new() { Text = "No setting matches the search.", Foreground = Muted, Margin = new Thickness(0, 24), IsVisible = false };
+    private LayoutSession? _machineSettings;
 
     public SettingsView(AppServices services, Action close, Action<string> loadLayout)
     {
@@ -50,17 +56,21 @@ public sealed class SettingsView : UserControl
             BorderBrush = Border,
             BorderThickness = new Thickness(0, 0, 0, 1),
             Padding = new Thickness(12, 8),
-            Child = new StackPanel { Orientation = Orientation.Horizontal, Children = { back, title } },
+            Child = new StackPanel { Orientation = Orientation.Horizontal, Children = { back, title, _search } },
         };
 
         BuildGeneral();
         BuildConnection();
+        BuildJogging();
         Build3dView();
         BuildUpload();
         BuildSharedPendantRules();
         BuildPendant();
         BuildGamepad();
         BuildMacros();
+        BuildMachineSettings();
+        _content.Children.Add(_noResults);
+        _search.TextChanged += (_, _) => ApplySearch();
 
         foreach (var name in _headers.Keys) _groups.Items.Add(name);
         _groups.SelectedIndex = 0;
@@ -88,13 +98,115 @@ public sealed class SettingsView : UserControl
             _services.State.Changed += OnStateChanged;
             RefreshPendantStatus();
         };
-        DetachedFromVisualTree += (_, _) => _services.State.Changed -= OnStateChanged;
+        DetachedFromVisualTree += (_, _) =>
+        {
+            _services.State.Changed -= OnStateChanged;
+            _services.State.Set(StatePaths.SettingsSearch, "");
+            _machineSettings?.Dispose();
+            _machineSettings = null;
+        };
     }
 
     public void Close()
     {
         _settings.Save();
+        _services.State.Set(StatePaths.SettingsSearch, "");
+        _machineSettings?.Dispose();
+        _machineSettings = null;
         _close();
+    }
+
+    // ------------------------------------------------------------------ machine settings (the machine's config.txt)
+
+    private const string MachineSettingsLayout = """
+        {
+          "root": {
+            "type": "stack", "spacing": 8,
+            "children": [
+              {
+                "type": "stack", "orientation": "horizontal", "height": 34, "spacing": 6,
+                "children": [
+                  { "type": "button", "text": "Read from machine", "command": "configLoad", "width": "auto", "tooltip": "Read the machine's config.txt" },
+                  {
+                    "type": "button", "text": "Send changes", "command": "configApply", "width": "auto",
+                    "tooltip": "Send the edited settings. They take effect after a reset.",
+                    "conditions": [ { "when": "config.pending > 0", "text": "Send {config.pending} change(s)", "background": "@warningSoft", "borderColor": "@warning" } ]
+                  },
+                  { "type": "button", "text": "Discard", "command": "configDiscard", "width": "auto" },
+                  { "type": "spacer" },
+                  { "type": "button", "text": "Restore defaults", "command": "configRestore", "width": "auto", "tooltip": "Restore the settings the machine saved as its defaults" },
+                  { "type": "button", "text": "Save as default", "command": "configSaveDefault", "width": "auto", "tooltip": "Save the machine's current settings as its defaults" },
+                  { "type": "button", "text": "Back up…", "command": "configBackup", "width": "auto", "tooltip": "Copy config.txt and the other configuration files from the SD card to a folder on this computer", "conditions": [ { "when": "transfer.active", "text": "Cancel: {transfer.phase} {transfer.percent:0}%", "background": "@warningSoft", "borderColor": "@warning" } ] },
+                  { "type": "button", "text": "Update firmware…", "command": "updateFirmware", "width": "auto", "tooltip": "Send a firmware file to the machine, then reset it to install the update", "conditions": [ { "when": "transfer.active", "text": "Cancel: {transfer.phase} {transfer.percent:0}%", "background": "@warningSoft", "borderColor": "@warning" } ] }
+                ]
+              },
+              { "type": "machineConfig" }
+            ]
+          }
+        }
+        """;
+
+    /// <summary>
+    /// The machine's own settings (its config.txt) live here too. The list is the machineConfig component of a small layout built
+    /// on the spot, so it shares the layout engine, the commands and the search with everything else.
+    /// </summary>
+    private void BuildMachineSettings()
+    {
+        Section("Machine settings", out var rows);
+        var loaded = LayoutLoader.Load(MachineSettingsLayout, "machine-settings", AppContext.BaseDirectory);
+        if (loaded.Document is null) return;
+        _machineSettings = new LayoutSession(loaded.Document, _services);
+        rows.Children.Add(new Border { Padding = new Thickness(12), Child = _machineSettings.Root });
+    }
+
+    // ------------------------------------------------------------------ search
+
+    /// <summary>All the text a control shows: labels, descriptions, buttons, entries of drop-downs and tooltips.</summary>
+    private static string TextOf(Control control)
+    {
+        var text = new System.Text.StringBuilder();
+        foreach (var node in control.GetLogicalDescendants().OfType<Control>().Prepend(control))
+        {
+            switch (node)
+            {
+                case TextBlock t: text.Append(t.Text).Append(' '); break;
+                case TextBox t: text.Append(t.Text).Append(' ').Append(t.PlaceholderText).Append(' '); break;
+                case ComboBox c: foreach (var item in c.Items) text.Append(item).Append(' '); break;
+                case ContentControl c when c.Content is string s: text.Append(s).Append(' '); break;
+            }
+            if (ToolTip.GetTip(node) is string tip) text.Append(tip).Append(' ');
+        }
+        return text.ToString();
+    }
+
+    /// <summary>Shows only the settings whose text (label, description, choices...) has every word of the search box, and the groups that hold any.</summary>
+    public void ApplySearch()
+    {
+        var words = (_search.Text ?? "").Split([' ', '\t'], StringSplitOptions.RemoveEmptyEntries);
+        _services.State.Set(StatePaths.SettingsSearch, string.Join(' ', words));
+        var machineItems = _services.MachineConfig.Items;
+        var visibleGroups = new List<string>();
+        foreach (var (name, header, card, rows) in _sections)
+        {
+            var groupMatches = words.All(w => name.Contains(w, StringComparison.OrdinalIgnoreCase));
+            var any = false;
+            foreach (var row in rows.Children.OfType<Control>())
+            {
+                var show = words.Length == 0 || groupMatches || words.All(w => TextOf(row).Contains(w, StringComparison.OrdinalIgnoreCase));
+                // The machine's settings are listed by the component, which filters itself; the group stays while any of them matches.
+                if (!show && name == "Machine settings")
+                    show = machineItems.Any(i => Components.MachineConfigComponent.Matches(i, "", words));
+                row.IsVisible = show;
+                any |= show;
+            }
+            header.IsVisible = card.IsVisible = any || words.Length == 0;
+            if (header.IsVisible) visibleGroups.Add(name);
+        }
+        var selected = _groups.SelectedItem as string;
+        _groups.Items.Clear();
+        foreach (var name in visibleGroups) _groups.Items.Add(name);
+        if (selected is not null && visibleGroups.Contains(selected)) _groups.SelectedItem = selected;
+        _noResults.IsVisible = words.Length > 0 && visibleGroups.Count == 0;
     }
 
     // ------------------------------------------------------------------ building blocks
@@ -105,14 +217,16 @@ public sealed class SettingsView : UserControl
         _headers[name] = header;
         _content.Children.Add(header);
         rows = new StackPanel { Spacing = 0 };
-        _content.Children.Add(new Border
+        var card = new Border
         {
             Background = CardBackground,
             BorderBrush = Border,
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(8),
             Child = rows,
-        });
+        };
+        _content.Children.Add(card);
+        _sections.Add((name, header, card, rows));
         return header;
     }
 
@@ -142,6 +256,14 @@ public sealed class SettingsView : UserControl
             _services.Pendants.Apply();
             RefreshPendantStatus();
         };
+        return toggle;
+    }
+
+    /// <summary>A switch for a value that lives in the state store (jog options, the bed picture); the store saves it in the settings.</summary>
+    private ToggleSwitch StateToggle(string path, bool fallback)
+    {
+        var toggle = new ToggleSwitch { IsChecked = _services.State.Get(path, fallback), OnContent = "On", OffContent = "Off" };
+        toggle.IsCheckedChanged += (_, _) => _services.State.Set(path, toggle.IsChecked == true);
         return toggle;
     }
 
@@ -188,15 +310,34 @@ public sealed class SettingsView : UserControl
             Toggle(_settings.AutoConnect, v => _settings.AutoConnect = v));
         Row(rows, "Reconnect if the connection drops", "Uses the same retries and interval. Choosing Disconnect yourself is never undone.",
             Toggle(_settings.AutoReconnect, v => _settings.AutoReconnect = v));
+        Row(rows, "Read the machine's settings when connecting", "Once per connection, when the machine is idle, reads its config.txt so the job setup page knows where the anchors are. Nothing is changed on the machine.",
+            Toggle(_settings.AutoReadConfig, v => _settings.AutoReadConfig = v));
         Row(rows, "Retry attempts", "How many more times to try if the machine does not answer. 0 tries once.",
             Number(_settings.AutoConnectRetries, 0, 999, v => _settings.AutoConnectRetries = v));
         Row(rows, "Seconds between attempts", "At least 1.",
             Number(_settings.AutoConnectIntervalSeconds, 1, 3600, v => _settings.AutoConnectIntervalSeconds = v));
     }
 
+    private void BuildJogging()
+    {
+        Section("Jogging", out var rows);
+        var mode = new ToggleSwitch
+        {
+            IsChecked = _services.State.Get<string>(StatePaths.JogButtonMode) == "continuous", OnContent = "On", OffContent = "Off"
+        };
+        mode.IsCheckedChanged += (_, _) => _services.State.Set(StatePaths.JogButtonMode, mode.IsChecked == true ? "continuous" : "step");
+        Row(rows, "Continuous jogging", "Off: one click or key press moves one jog step. On: the machine keeps moving for as long as the button or key is held down.", mode);
+        Row(rows, "Jog keys", "Ctrl+arrow keys jog X and Y, Ctrl+PageUp and Ctrl+PageDown jog Z (in a layout that binds them). They follow the Continuous jogging setting.",
+            StateToggle(StatePaths.JogKeyboard, true));
+        Row(rows, "Reverse Y", "Y jogs the other way round on the jog pad and on the keys: the button that points up moves Y-.",
+            StateToggle(StatePaths.JogInvertY, true));
+    }
+
     private void Build3dView()
     {
         Section("3D view", out var rows);
+        Row(rows, "Machine bed picture", "Draws a picture of the machine bed flat under the path in the 3D view, and behind the plan on the job setup page.",
+            StateToggle(StatePaths.ViewBedImage, true));
         var renderer = new ComboBox();
         foreach (var option in new[] { "Auto", "GPU", "CPU" }) renderer.Items.Add(option);
         renderer.SelectedItem = _settings.ViewerRenderer;

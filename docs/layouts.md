@@ -11,7 +11,7 @@ Everything you see in Carvera Controller C# comes from a layout file. You decide
 
 - Choose a layout with the `layoutSelector` element, the `openLayout` command, or `CarveraController.exe --layout <name or path>`. The last one used is remembered.
 - **Ctrl+L** opens a layout picker in any layout, even one without a `layoutSelector`. F5 and Ctrl+L are reserved and cannot be used as layout shortcuts.
-- The app watches the current layout file. **Save the file and the window rebuilds immediately.** F5 also reloads it.
+- The app watches the layout folders. **Save the file and the window rebuilds immediately**, keeping the tab, scroll positions, splitters and collapsed panels you had. F5 also reloads it. The [layout editor](layout-editor.md) uses this to show its changes as you make them.
 - If a file has errors, a red banner lists them (with the JSON path of each problem) and the previous layout stays on screen. At startup, the built-in desktop layout is used instead, so the machine can always be operated.
 - Point your editor at `schema/layout.schema.json` (the shipped layouts do this with `"$schema"`) to get autocompletion and inline checks. Comments (`//`) and trailing commas are allowed.
 
@@ -41,11 +41,11 @@ Every element has a `type`. **Containers** arrange children; **components** do s
 | `panel` | A framed `stack` with an optional `title`; can be `collapsible`. |
 | `grid` | Rows and columns; children pick cells with `row`/`column` (+ spans). |
 | `split` | Panes with draggable splitters. |
-| `tabs` | One child at a time; each child's `title` is its tab. |
+| `tabs` | One child at a time; each child's `title` is its tab. `"prominence": "primary"` makes large, filled headers for the main pages. |
 | `scroll` | Scrolls one `child`. |
 | `canvas` | Free placement with `x`/`y`. |
 
-Components include `toolpath` (the 3D G-code view), `gcodeScrubber`, `operationList`, `toolList`, `gcodeList`, `axisReadout`, `machineStatus`, `button`, `toggle`, `choice`, `jogPad`, `jogStep`, `wcsSelector`, `override`, `slider`, `value`, `text`, `indicator`, `progress`, `image`, `console`, `mdi`, `connection`, `remoteFiles` (the machine's SD card), `probePanel` (probing), `machineConfig` (the machine's settings), `layoutSelector` and `spacer`. The [reference](layout-reference.md) lists their properties.
+Components include `bedView` (plan view of the machine bed for job setup), `toolpath` (the 3D G-code view), `gcodeScrubber`, `operationList`, `toolList`, `gcodeList`, `axisReadout`, `machineStatus`, `button`, `toggle`, `choice`, `jogPad`, `jogStep`, `wcsSelector`, `override`, `slider`, `value`, `text`, `indicator`, `progress`, `image`, `console`, `mdi`, `connection`, `remoteFiles` (the machine's SD card), `probePanel` (probing), `machineConfig` (the machine's settings), `layoutSelector` and `spacer`. The [reference](layout-reference.md) lists their properties.
 
 ## Sizing works like a web page
 
@@ -169,6 +169,9 @@ Some machine functions have no component of their own: their commands publish st
 - **Ring-gauge drift check** (the *Ring gauge* tab of `desktop.json`): `ringGaugeProbe`, `ringGaugeBack`, `ringGaugeReset`, `ringGaugeApplyTip`, `ringGaugePersist`, and the state `probe.drift.title`, `.text`, `.primary` (the main button's caption), `.points`, `.result`, `.stored`, `.step`, `.done`, `.running`, `.applyTip` and `.persist`. The correction it stores is applied after XY-zeroing probes by the `probe` command.
 - **Z probe position:** `zProbeSetup` asks for the origin (work or path) and the X and Y offset; `zprobe.label`, `zprobe.origin`, `zprobe.x` and `zprobe.y` describe it, and `autoRun` with `zProbe` uses it.
 - **Set work origin:** `setWorkOrigin` asks for an anchor (`anchor1`, `anchor2`, `current` or `rotation`) and an X and Y offset.
+- **Job setup** (the first page of `desktop2.json`): `jobOrigin` chooses where the work origin comes from (`anchor1` and `anchor2` set it at once after asking, `probe` selects the 3D-probe way, measured with `xyzProbe`), `jobOffset` sets the offset from the anchor, `jobToggle` ticks the steps (`margin`, `zprobe`, `leveling`, `gotoOrigin`), `jobLevelSetup` sets the auto-level grid and `jobRun` runs the ticked steps. State: `job.origin`, `job.originX/Y`, `job.margin`, `job.zprobe`, `job.leveling`, `job.gotoOrigin`, `job.levelText`, `job.originText`, `job.boundsText` and `job.pathOriginText`; the bed itself is `bed.*`. The Z probe alone (`autoRun` with `zProbe`) also runs without an open file.
+- **Bed picture:** `setBedImage` (state `view.bedImage`) shows or hides the picture of the bed under the `toolpath` and in the `bedView`. It is also in Settings > 3D view.
+- **Jogging:** the `jogPad` follows `jog.buttonMode` (`setJogMode`: `step` = one click one step, `continuous` = moves while the button is held; diagonals need step mode), `jog.keyboard` (`setJogKeyboard`) and `jog.invertY` (`setJogInvertY`: the button that points up moves Y-, and its caption says so). `jogKey` and `jogKeyStop` do the same for keys.
 - **Configuration backup:** `configBackup` copies the machine's configuration files to a folder on the computer.
 
 ## Commands
@@ -183,7 +186,7 @@ Buttons, toggles, choices, sliders, readouts and keyboard shortcuts run **comman
 
 A control is automatically disabled while its command can't run, for example when no machine is connected or motion is blocked during an alarm. Switch commands (`setLight`, `setAir`, ...) toggle when `on` is omitted, and a `toggle` sends the opposite of its bound state.
 
-Shortcuts use key names like `Escape`, `F5`, `Ctrl+Up`, `Ctrl+Shift+H`. Plain keys are ignored while you type in a text box. Shortcuts with Ctrl/Alt, function keys, Escape and Pause always work.
+Shortcuts use key names like `Escape`, `F5`, `Ctrl+Up`, `Ctrl+Shift+H`. A shortcut can also have `"release"` (a command, with `releaseArgs`) that runs when the key is let go, and `"repeat": false` to ignore the key repeating while held; the jog keys use `jogKey` with `"release": "jogKeyStop"`. Plain keys are ignored while you type in a text box. Shortcuts with Ctrl/Alt, function keys, Escape and Pause always work.
 
 ## Safety controls
 

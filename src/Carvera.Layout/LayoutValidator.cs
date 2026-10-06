@@ -28,6 +28,7 @@ public sealed partial class LayoutValidator
             else if (shortcut.Key.Replace(" ", "").ToLowerInvariant() is "f5" or "ctrl+l" or "control+l")
                 bag.Warning($"{shortcut.Path}.key", $"'{shortcut.Key}' is reserved (F5 reloads the layout, Ctrl+L switches layouts) and is ignored here.");
             ValidateCommand(shortcut.Command, shortcut.Args, $"{shortcut.Path}", bag);
+            if (shortcut.Release is not null) ValidateCommand(shortcut.Release, shortcut.ReleaseArgs, $"{shortcut.Path}.release", bag);
         }
 
         foreach (var missing in SafetyAnalyzer.FindMissing(document))

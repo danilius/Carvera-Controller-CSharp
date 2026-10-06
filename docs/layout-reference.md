@@ -106,6 +106,7 @@ States for `visuals`: `normal`, `hover`, `disabled`.
 |---|---|---|
 | `placement` | enum: `top`, `bottom`, `left`, `right` | Where the tab headers sit. |
 | `selected` | number | Initially selected tab (0-based). |
+| `prominence` | enum: `normal`, `primary` | normal, or primary for large page-switching headers with a filled selected tab. |
 
 ### `scroll`
 
@@ -265,6 +266,7 @@ States for `visuals`: `normal`, `hover`, `pressed`, `disabled`, `on`, `off`.
 | `args` | args | Arguments for the command. |
 | `onArgs` | args | Arguments used when turning on. |
 | `offArgs` | args | Arguments used when turning off. |
+| `look` | enum: `button`, `switch` | button (default) or switch: a sliding on/off switch with the caption beside it. |
 
 ### `choice`
 
@@ -405,6 +407,8 @@ States for `visuals`: `normal`, `hover`, `disabled`.
 | `showGrid` | bool | Draw the XY grid at Z0 (default true). |
 | `gridSize` | number | Grid pitch in mm (default 10). |
 | `showGizmo` | bool | Show the navigation gizmo (default true). |
+| `showBed` | bool | Draw the machine bed picture flat under the path (default true; the setting view.bedImage turns all bed pictures off). |
+| `bedImage` | string | Picture of the bed, from the layout's folder; default: the one that fits the machine model. |
 | `toolLength` | number | Length of the drawn tool in mm (default 25). |
 | `pathColor` | color | Feed moves. |
 | `rapidColor` | color | Rapid moves. |
@@ -466,6 +470,21 @@ States for `visuals`: `normal`, `hover`, `disabled`.
 |---|---|---|
 | `section` | enum: `Basic`, `Advanced` | Show only the Basic or the Advanced settings (default: both). |
 
+### `bedView`
+
+Plan view of the machine bed for job setup: the bed picture (Carvera or Carvera Air; hidden when the bed picture is switched off), the anchors, the work origin, the open program's outline and path origin, the Z probe position, the auto-level points and the tool. Drawn from the state, so it follows the machine's offsets and rotation.
+
+States for `visuals`: `normal`, `hover`, `disabled`.
+
+| Property | Kind | Description |
+|---|---|---|
+| `bedImage` | string | Picture of the bed, from the layout's folder; default: the one that fits the machine model. |
+| `showAnchors` | bool | Mark the anchors (default true). |
+| `showPath` | bool | Draw the open program's outline and path origin (default true). |
+| `showZProbe` | bool | Mark the Z probe position while the Z probe step is on (default true). |
+| `showLeveling` | bool | Show the auto-level points while the auto-level step is on (default true). |
+| `showTool` | bool | Mark the tool position while connected (default true). |
+
 ### `probePanel`
 
 Probing: pick a family (bore, boss, corners, single axis, angle, probe tip, calibration, 4th axis), fill in the parameters, and press an operation to run it on the machine (asks first). The values are remembered. The command that would be sent is shown live.
@@ -520,6 +539,17 @@ States for `visuals`: `normal`, `hover`, `disabled`.
 |---|---|---|
 | `uploadFile` | `path`: Local file; defaults to the open file, or asks<br>`remoteDirectory`: Folder on the machine; defaults to the upload folder in the settings | Upload file. Sends the open G-code file (or 'path') to the machine over the connection; press it again during an upload to cancel. Only available while the machine is idle. |
 
+### Job setup
+
+| Command | Arguments | Description |
+|---|---|---|
+| `jobLevelSetup` | `text`: For example "3 3 5" | Auto-level grid.... Sets the auto-level grid. Asks for 'text' ("3 3 5" or "3 3 5 2 2 2 2") when not given. Works without a machine connection. |
+| `jobOffset` | `text`: For example "10 5" | Origin offset.... Changes the offset from the chosen anchor and, for an anchor, sets the work origin again. Asks for 'text' ("10 5") when not given. Works without a machine connection. |
+| `jobOrigin` | `anchor` (required): anchor1, anchor2 or probe<br>`x`: X offset from the anchor, mm<br>`y`: Y offset from the anchor, mm<br>`confirmed`: Skip the question | Choose work origin. Chooses where the work origin comes from. Anchor 1 and anchor 2 set it at once (after asking; the machine does not move) from the anchor position plus the offset; 'probe' only selects the probed-position way, which is then measured with xyzProbe. Works without a machine connection. |
+| `jobRun` | `confirmed`: Skip the question<br>`buffer`: Queue behind the running program | Run job preparation. Runs the chosen preparation steps (margin, Z probe, auto-level, go to the path origin) in the order the Python controller does, after asking. |
+| `jobToggle` | `name` (required): margin, zprobe, leveling or gotoOrigin<br>`on`: Omit to toggle | Toggle a job step. Turns a preparation step of jobRun on or off (toggles without 'on'). Works without a machine connection. |
+| `setBedImage` | `on`: Omit to toggle | Show the bed picture. Shows or hides the machine bed picture under the toolpath and on the job setup page (toggles without 'on'). Works without a machine connection. |
+
 ### Machine configuration
 
 | Command | Arguments | Description |
@@ -564,8 +594,15 @@ States for `visuals`: `normal`, `hover`, `disabled`.
 | `gotoWorkHome` |  | Go to work XY zero.  |
 | `gotoWorkOrigin` |  | Go to work origin.  |
 | `home` |  | Home. Homes all axes ($H). |
-| `jog` | `axis` (required): e.g. X, Z-, X+Y+<br>`direction`: +1 or -1 (multiplies the signs in 'axis')<br>`distance`: Overrides the jog step<br>`feed`: mm/min; defaults to jog.feed | Jog. Relative jog by the current jog step (or 'distance'). 'axis' is X, Y, Z or A with an optional sign, and may combine axes: "X+Y-". |
+| `jog` | `axis` (required): e.g. X, Z-, X+Y+<br>`direction`: +1 or -1 (multiplies the signs in 'axis')<br>`distance`: Overrides the jog step<br>`feed`: mm/min; defaults to jog.feed<br>`screen`: The axis is the direction on screen: Y is reversed when jog.invertY is set | Jog. Relative jog by the current jog step (or 'distance'). 'axis' is X, Y, Z or A with an optional sign, and may combine axes: "X+Y-". With 'screen', Y follows the Reverse Y setting. |
+| `jogKey` | `axis` (required): e.g. X, Y-, Z | Jog with a key. Jogs from a key press, if keyboard jogging is on: one step in step mode, or continuously until the key is released (jogKeyStop) in continuous mode. Y follows the Reverse Y setting. |
+| `jogKeyStop` |  | Stop jogging with a key. Stops the continuous jog started by jogKey when the key is released. Does nothing in step mode. |
+| `jogStart` | `axis` (required): e.g. X, Y-, Z<br>`feed`: mm/min; defaults to jog.feed (Z is capped)<br>`screen`: The axis is the direction on screen: Y is reversed when jog.invertY is set | Jog while held. Starts a continuous jog that runs until jogStop. One axis; a jog that is already running is left alone. With 'screen', Y follows the Reverse Y setting. |
+| `jogStop` |  | Stop jogging. Stops a continuous jog. |
 | `setJogFeed` | `value` (required): mm/min | Set jog feed.  Works without a machine connection. |
+| `setJogInvertY` | `on`: Omit to toggle | Reverse Y jogging. Reverses the Y direction of the jog pad and jog keys (toggles without 'on'). Works without a machine connection. |
+| `setJogKeyboard` | `on`: Omit to toggle | Keyboard jogging. Turns the jog keys on or off (toggles without 'on'). Works without a machine connection. |
+| `setJogMode` | `mode`: step or continuous<br>`value`: Same as mode, for choice elements | Set jog mode. Chooses whether jog buttons and keys move one step per click or continuously while held (toggles without 'mode'). Works without a machine connection. |
 | `setJogStep` | `value` (required): Step in mm | Set jog step.  Works without a machine connection. |
 
 ### Overrides

@@ -110,7 +110,16 @@
               "gotoWorkHome",
               "gotoWorkOrigin",
               "home",
+              "jobLevelSetup",
+              "jobOffset",
+              "jobOrigin",
+              "jobRun",
+              "jobToggle",
               "jog",
+              "jogKey",
+              "jogKeyStop",
+              "jogStart",
+              "jogStop",
               "laserScale",
               "openFile",
               "openLayout",
@@ -144,7 +153,11 @@
               "selectWcs",
               "sendGcode",
               "setAir",
+              "setBedImage",
               "setJogFeed",
+              "setJogInvertY",
+              "setJogKeyboard",
+              "setJogMode",
               "setJogStep",
               "setLaserMode",
               "setLaserTest",
@@ -182,6 +195,131 @@
           },
           "args": {
             "type": "object"
+          },
+          "release": {
+            "type": "string",
+            "enum": [
+              "adjustJogStep",
+              "autoRun",
+              "calibrateTool",
+              "changeTool",
+              "clampTool",
+              "clearAutoLevel",
+              "clearConsole",
+              "clearRotation",
+              "closeFile",
+              "configApply",
+              "configBackup",
+              "configDiscard",
+              "configLoad",
+              "configRestore",
+              "configSaveDefault",
+              "connect",
+              "cycleStart",
+              "disconnect",
+              "dropTool",
+              "exit",
+              "feedHold",
+              "feedOverride",
+              "goto",
+              "gotoAnchor1",
+              "gotoAnchor2",
+              "gotoClearance",
+              "gotoMachineHome",
+              "gotoPathOrigin",
+              "gotoSafeZ",
+              "gotoWorkHome",
+              "gotoWorkOrigin",
+              "home",
+              "jobLevelSetup",
+              "jobOffset",
+              "jobOrigin",
+              "jobRun",
+              "jobToggle",
+              "jog",
+              "jogKey",
+              "jogKeyStop",
+              "jogStart",
+              "jogStop",
+              "laserScale",
+              "openFile",
+              "openLayout",
+              "pairProbe",
+              "pauseResume",
+              "playFile",
+              "previewClear",
+              "previewStep",
+              "probe",
+              "reloadLayout",
+              "remoteDelete",
+              "remoteDownload",
+              "remoteMkdir",
+              "remoteOpen",
+              "remotePlay",
+              "remoteRefresh",
+              "remoteRename",
+              "remoteSelect",
+              "remoteUp",
+              "remoteUpload",
+              "remoteView",
+              "reset",
+              "resume",
+              "ringGaugeApplyTip",
+              "ringGaugeBack",
+              "ringGaugePersist",
+              "ringGaugeProbe",
+              "ringGaugeReset",
+              "saveFile",
+              "selectOperation",
+              "selectWcs",
+              "sendGcode",
+              "setAir",
+              "setBedImage",
+              "setJogFeed",
+              "setJogInvertY",
+              "setJogKeyboard",
+              "setJogMode",
+              "setJogStep",
+              "setLaserMode",
+              "setLaserTest",
+              "setLight",
+              "setOperationTool",
+              "setRotation",
+              "setSpindle",
+              "setTool",
+              "setToolSensorPower",
+              "setVacuum",
+              "setVacuumMode",
+              "setWorkOrigin",
+              "setWorkpieceCharge",
+              "setWorkPosition",
+              "setWorkPositionPrompt",
+              "setWorkZero",
+              "spindleOverride",
+              "stop",
+              "suspend",
+              "toolCalibrate",
+              "toolChange",
+              "toolChoose",
+              "toolClamp",
+              "toolDrop",
+              "toolSetNumber",
+              "toolUnclamp",
+              "unclampTool",
+              "unlock",
+              "updateFirmware",
+              "uploadFile",
+              "xyzProbe",
+              "zProbeSetup"
+            ],
+            "description": "Command to run when the key is let go, e.g. jogKeyStop."
+          },
+          "releaseArgs": {
+            "type": "object"
+          },
+          "repeat": {
+            "type": "boolean",
+            "description": "false: holding the key does not run the command again (default true)."
           }
         }
       }
@@ -361,6 +499,7 @@
             "toolList",
             "remoteFiles",
             "machineConfig",
+            "bedView",
             "probePanel",
             "layoutSelector"
           ],
@@ -530,6 +669,14 @@
               "selected": {
                 "type": "number",
                 "description": "Initially selected tab (0-based)."
+              },
+              "prominence": {
+                "type": "string",
+                "enum": [
+                  "normal",
+                  "primary"
+                ],
+                "description": "normal, or primary for large page-switching headers with a filled selected tab."
               }
             }
           }
@@ -785,7 +932,16 @@
                   "gotoWorkHome",
                   "gotoWorkOrigin",
                   "home",
+                  "jobLevelSetup",
+                  "jobOffset",
+                  "jobOrigin",
+                  "jobRun",
+                  "jobToggle",
                   "jog",
+                  "jogKey",
+                  "jogKeyStop",
+                  "jogStart",
+                  "jogStop",
                   "laserScale",
                   "openFile",
                   "openLayout",
@@ -819,7 +975,11 @@
                   "selectWcs",
                   "sendGcode",
                   "setAir",
+                  "setBedImage",
                   "setJogFeed",
+                  "setJogInvertY",
+                  "setJogKeyboard",
+                  "setJogMode",
                   "setJogStep",
                   "setLaserMode",
                   "setLaserTest",
@@ -1063,7 +1223,16 @@
                   "gotoWorkHome",
                   "gotoWorkOrigin",
                   "home",
+                  "jobLevelSetup",
+                  "jobOffset",
+                  "jobOrigin",
+                  "jobRun",
+                  "jobToggle",
                   "jog",
+                  "jogKey",
+                  "jogKeyStop",
+                  "jogStart",
+                  "jogStop",
                   "laserScale",
                   "openFile",
                   "openLayout",
@@ -1097,7 +1266,11 @@
                   "selectWcs",
                   "sendGcode",
                   "setAir",
+                  "setBedImage",
                   "setJogFeed",
+                  "setJogInvertY",
+                  "setJogKeyboard",
+                  "setJogMode",
                   "setJogStep",
                   "setLaserMode",
                   "setLaserTest",
@@ -1215,7 +1388,16 @@
                   "gotoWorkHome",
                   "gotoWorkOrigin",
                   "home",
+                  "jobLevelSetup",
+                  "jobOffset",
+                  "jobOrigin",
+                  "jobRun",
+                  "jobToggle",
                   "jog",
+                  "jogKey",
+                  "jogKeyStop",
+                  "jogStart",
+                  "jogStop",
                   "laserScale",
                   "openFile",
                   "openLayout",
@@ -1249,7 +1431,11 @@
                   "selectWcs",
                   "sendGcode",
                   "setAir",
+                  "setBedImage",
                   "setJogFeed",
+                  "setJogInvertY",
+                  "setJogKeyboard",
+                  "setJogMode",
                   "setJogStep",
                   "setLaserMode",
                   "setLaserTest",
@@ -1296,6 +1482,14 @@
               "offArgs": {
                 "type": "object",
                 "description": "Arguments used when turning off."
+              },
+              "look": {
+                "type": "string",
+                "enum": [
+                  "button",
+                  "switch"
+                ],
+                "description": "button (default) or switch: a sliding on/off switch with the caption beside it."
               }
             }
           }
@@ -1360,7 +1554,16 @@
                   "gotoWorkHome",
                   "gotoWorkOrigin",
                   "home",
+                  "jobLevelSetup",
+                  "jobOffset",
+                  "jobOrigin",
+                  "jobRun",
+                  "jobToggle",
                   "jog",
+                  "jogKey",
+                  "jogKeyStop",
+                  "jogStart",
+                  "jogStop",
                   "laserScale",
                   "openFile",
                   "openLayout",
@@ -1394,7 +1597,11 @@
                   "selectWcs",
                   "sendGcode",
                   "setAir",
+                  "setBedImage",
                   "setJogFeed",
+                  "setJogInvertY",
+                  "setJogKeyboard",
+                  "setJogMode",
                   "setJogStep",
                   "setLaserMode",
                   "setLaserTest",
@@ -1609,7 +1816,16 @@
                   "gotoWorkHome",
                   "gotoWorkOrigin",
                   "home",
+                  "jobLevelSetup",
+                  "jobOffset",
+                  "jobOrigin",
+                  "jobRun",
+                  "jobToggle",
                   "jog",
+                  "jogKey",
+                  "jogKeyStop",
+                  "jogStart",
+                  "jogStop",
                   "laserScale",
                   "openFile",
                   "openLayout",
@@ -1643,7 +1859,11 @@
                   "selectWcs",
                   "sendGcode",
                   "setAir",
+                  "setBedImage",
                   "setJogFeed",
+                  "setJogInvertY",
+                  "setJogKeyboard",
+                  "setJogMode",
                   "setJogStep",
                   "setLaserMode",
                   "setLaserTest",
@@ -1958,6 +2178,14 @@
                 "type": "boolean",
                 "description": "Show the navigation gizmo (default true)."
               },
+              "showBed": {
+                "type": "boolean",
+                "description": "Draw the machine bed picture flat under the path (default true; the setting view.bedImage turns all bed pictures off)."
+              },
+              "bedImage": {
+                "type": "string",
+                "description": "Picture of the bed, from the layout's folder; default: the one that fits the machine model."
+              },
               "toolLength": {
                 "type": "number",
                 "description": "Length of the drawn tool in mm (default 25)."
@@ -2119,6 +2347,47 @@
                   "Advanced"
                 ],
                 "description": "Show only the Basic or the Advanced settings (default: both)."
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "bedView"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "description": "Plan view of the machine bed for job setup: the bed picture (Carvera or Carvera Air; hidden when the bed picture is switched off), the anchors, the work origin, the open program's outline and path origin, the Z probe position, the auto-level points and the tool. Drawn from the state, so it follows the machine's offsets and rotation.",
+            "properties": {
+              "bedImage": {
+                "type": "string",
+                "description": "Picture of the bed, from the layout's folder; default: the one that fits the machine model."
+              },
+              "showAnchors": {
+                "type": "boolean",
+                "description": "Mark the anchors (default true)."
+              },
+              "showPath": {
+                "type": "boolean",
+                "description": "Draw the open program's outline and path origin (default true)."
+              },
+              "showZProbe": {
+                "type": "boolean",
+                "description": "Mark the Z probe position while the Z probe step is on (default true)."
+              },
+              "showLeveling": {
+                "type": "boolean",
+                "description": "Show the auto-level points while the auto-level step is on (default true)."
+              },
+              "showTool": {
+                "type": "boolean",
+                "description": "Mark the tool position while connected (default true)."
               }
             }
           }

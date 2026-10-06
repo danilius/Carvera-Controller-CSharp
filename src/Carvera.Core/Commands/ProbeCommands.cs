@@ -42,7 +42,9 @@ public static class ProbeCommands
     /// </summary>
     public static IReadOnlyList<string> AutoRun(StateStore state, AutoOptions o)
     {
-        if (!(o.Margin || o.ZProbe || o.Leveling || o.GotoOrigin) || !PathOriginAvailable(state)) return [];
+        if (!(o.Margin || o.ZProbe || o.Leveling || o.GotoOrigin)) return [];
+        // Without a program only the Z probe can run: the area is then a point at the work origin.
+        if (!PathOriginAvailable(state) && !(o.ZProbe && !o.Margin && !o.Leveling && !o.GotoOrigin)) return [];
         double xmin = state.Get(StatePaths.FileXMin, 0.0), xmax = state.Get(StatePaths.FileXMax, 0.0);
         double ymin = state.Get(StatePaths.FileYMin, 0.0), ymax = state.Get(StatePaths.FileYMax, 0.0);
         var offsets = o.LevelOffsets is { Length: 4 } l ? l : [0, 0, 0, 0]; // x-, x+, y-, y+
@@ -161,7 +163,7 @@ public static class ProbeCommands
                 a.GetDouble("zProbeOffsetX") ?? setX, a.GetDouble("zProbeOffsetY") ?? setY, a.GetInt("pointsX") ?? 3, a.GetInt("pointsY") ?? 3, a.GetDouble("height") ?? 5,
                 levelOffsets, a.GetInt("tool") ?? 0);
             var lines = AutoRun(c.State, options);
-            if (lines.Count == 0) throw new InvalidOperationException("Nothing to do: open a G-code file that fits the work area, and choose margin, Z probe, auto-level or go to origin.");
+            if (lines.Count == 0) throw new InvalidOperationException("Nothing to do: choose margin, Z probe, auto-level or go to origin (all but the Z probe need a G-code file that fits the work area).");
             if (a.GetBool("confirmed") != true && !await host.ConfirmAsync("Run this on the machine now? It will move.\n\n" + string.Join('\n', lines.Select(l => l.Trim())))) return;
             var buffer = a.GetBool("buffer") == true ? "buffer " : "";
             foreach (var line in lines) await c.Controller.SendLineAsync(buffer + line);

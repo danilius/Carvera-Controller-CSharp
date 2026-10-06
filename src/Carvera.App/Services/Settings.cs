@@ -73,10 +73,25 @@ public sealed class Settings
     /// <summary>The values typed into the probing panel, per probing family: parameter code to text.</summary>
     public Dictionary<string, Dictionary<string, string>> ProbeSettings { get; set; } = [];
 
+    // Jogging from the on-screen pad and the keys.
+    /// <summary>"step" or "continuous".</summary>
+    public string JogButtonMode { get; set; } = "step";
+    public bool JogKeyboard { get; set; } = true;
+    /// <summary>Y jogs the other way round on the jog pad and keys (the Carvera's Y axis runs opposite to what the pad's arrows suggest).</summary>
+    public bool JogInvertY { get; set; } = true;
+
     /// <summary>The ring-gauge drift correction: applied after XY-zeroing probes while enabled.</summary>
     public bool RingGaugeEnabled { get; set; }
     public double RingGaugeX { get; set; }
     public double RingGaugeY { get; set; }
+
+    /// <summary>Read the machine's config.txt once per connection (for the bed picture and anchor positions), when the machine is idle.</summary>
+    public bool AutoReadConfig { get; set; } = true;
+
+    /// <summary>What the job setup page remembers: the origin choice, the steps to run and the auto-level grid.</summary>
+    public Carvera.Core.Job.JobSettings? JobSetup { get; set; }
+    /// <summary>Draw the machine bed picture under the toolpath and on the job setup page.</summary>
+    public bool ShowBedImage { get; set; } = true;
 
     /// <summary>Where the Z probe is: "work" or "path" origin, and the X and Y offset from it.</summary>
     public string ZProbeOrigin { get; set; } = "work";

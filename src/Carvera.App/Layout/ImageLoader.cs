@@ -16,8 +16,18 @@ public sealed class ImageLoader(string baseDirectory, ConsoleLog? console = null
 
     public string BaseDirectory { get; } = baseDirectory;
 
-    public string ResolvePath(string source) =>
-        System.IO.Path.IsPathRooted(source) ? source : System.IO.Path.GetFullPath(System.IO.Path.Combine(BaseDirectory, source));
+    /// <summary>
+    /// A relative picture is looked for beside the layout file, then in the layouts installed with the program: a customised
+    /// copy of a built-in layout lives in the user's folder and still uses the built-in pictures.
+    /// </summary>
+    public string ResolvePath(string source)
+    {
+        if (System.IO.Path.IsPathRooted(source)) return source;
+        var beside = System.IO.Path.GetFullPath(System.IO.Path.Combine(BaseDirectory, source));
+        if (File.Exists(beside)) return beside;
+        var installed = System.IO.Path.GetFullPath(System.IO.Path.Combine(AppContext.BaseDirectory, "layouts", source));
+        return File.Exists(installed) ? installed : beside;
+    }
 
     /// <summary>Creates a control that shows the image, tinted with <paramref name="tint"/> for built-in icons.</summary>
     public Control? CreateControl(string? source, double? width, double? height, IBrush? tint, Stretch stretch = Stretch.Uniform)

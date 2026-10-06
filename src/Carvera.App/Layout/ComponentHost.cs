@@ -96,8 +96,14 @@ public class ComponentHost : Border
     /// <summary>Raised when a clickable host is activated (mouse, touch, Enter or Space).</summary>
     public event Action? Clicked;
 
+    /// <summary>Raised when the pointer goes down on a clickable host, and when that press ends (released, or the capture lost). For controls that act while held.</summary>
+    public event Action? PressStarted, PressEnded;
+
     public bool Clickable { get; private set; }
     public bool Repeat { get; set; }
+
+    /// <summary>Set on collapsible panels: collapses (true) or expands (false) them. Used to restore the state after a live reload and to reveal an element inside one.</summary>
+    public Action<bool>? CollapseToggle { get; set; }
 
     public Theme LayoutTheme => _ctx.Theme;
 
@@ -270,6 +276,7 @@ public class ComponentHost : Border
         e.Handled = true;
         Focus();
         Refresh();
+        PressStarted?.Invoke();
         if (Repeat)
         {
             Clicked?.Invoke();
@@ -307,6 +314,7 @@ public class ComponentHost : Border
         if (!_pressed) return;
         _pressed = false;
         Refresh();
+        PressEnded?.Invoke();
     }
 
     protected override void OnKeyDown(KeyEventArgs e)

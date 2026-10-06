@@ -21,7 +21,7 @@ public sealed class LayoutBuilder(BuildContext ctx)
 
     public Control Build(LayoutNode node)
     {
-        var host = new ComponentHost(node, ctx);
+        var host = new ComponentHost(node, ctx, node.Type.Equals("toggle", StringComparison.OrdinalIgnoreCase) && node.GetString("look") == "switch" ? "switch" : null);
         Hosts.Add(host);
         try
         {
@@ -104,6 +104,7 @@ public sealed class LayoutBuilder(BuildContext ctx)
                 host.SetState("collapsed", collapsed);
             }
             header.PointerPressed += (_, e) => { SetCollapsed(body.IsVisible); e.Handled = true; };
+            host.CollapseToggle = SetCollapsed;
             SetCollapsed(node.GetBool("collapsed") == true);
         }
         return dock;
@@ -196,16 +197,50 @@ public sealed class LayoutBuilder(BuildContext ctx)
             },
             Padding = new Thickness(0, 6, 0, 0),
         };
+        var primary = node.GetString("prominence")?.Equals("primary", StringComparison.OrdinalIgnoreCase) == true;
+        var headers = new List<(Border Box, TextBlock Text)>();
         foreach (var child in node.Children)
         {
             var title = ctx.TemplateProp(child, "title");
             var item = new TabItem { Content = Slot(child), FontSize = ctx.Theme.FontSize + 1 };
-            void Update() => item.Header = title?.Render(ctx.Resolve) ?? child.Type;
-            if (title is not null) ctx.Watch(title.Paths, Update);
-            Update();
+            if (primary)
+            {
+                // The header is drawn here, not by the control theme, so it looks the same whatever the theme does to a selected tab.
+                var text = new TextBlock { FontSize = ctx.Theme.FontSize + 3, FontWeight = FontWeight.SemiBold, VerticalAlignment = VerticalAlignment.Center };
+                var box = new Border { Child = text, CornerRadius = new CornerRadius(8), Padding = new Thickness(18, 9), MinHeight = 42 };
+                headers.Add((box, text));
+                item.Header = box;
+                item.Padding = new Thickness(2, 0);
+                item.MinHeight = 0;
+                void Retitle() => text.Text = title?.Render(ctx.Resolve) ?? child.Type;
+                if (title is not null) ctx.Watch(title.Paths, Retitle);
+                Retitle();
+            }
+            else
+            {
+                void Update() => item.Header = title?.Render(ctx.Resolve) ?? child.Type;
+                if (title is not null) ctx.Watch(title.Paths, Update);
+                Update();
+            }
             tabs.Items.Add(item);
         }
+        if (primary)
+        {
+            void Paint()
+            {
+                for (var i = 0; i < headers.Count; i++)
+                {
+                    var on = i == tabs.SelectedIndex;
+                    headers[i].Box.Background = on ? ctx.Theme.TokenBrush("accent") : Brushes.Transparent;
+                    headers[i].Text.Foreground = on ? ctx.Theme.TokenBrush("accentText") : ctx.Theme.TokenBrush("text");
+                }
+            }
+            tabs.SelectionChanged += (_, _) => Paint();
+            tabs.Padding = new Thickness(0, 10, 0, 0);
+            Paint();
+        }
         if (node.GetNumber("selected") is { } selected && selected >= 0 && selected < node.Children.Count) tabs.SelectedIndex = (int)selected;
+        if (primary) foreach (var header in headers) header.Box.Background ??= Brushes.Transparent;
         return tabs;
     }
 

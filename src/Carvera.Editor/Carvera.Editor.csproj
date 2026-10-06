@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <AssemblyName>CarveraLayoutEditor</AssemblyName>
+    <RootNamespace>Carvera.Editor</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
+  </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Carvera.Editor.Tests" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="../../samples/*.nc" LinkBase="samples" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Carvera.Core/Carvera.Core.csproj" />
+    <ProjectReference Include="../Carvera.Layout/Carvera.Layout.csproj" />
+    <ProjectReference Include="../Carvera.App/Carvera.App.csproj" />
+    <PackageReference Include="Avalonia.Desktop" Version="12.1.2" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.2" />
+    <PackageReference Include="Avalonia.AvaloniaEdit" Version="12.0.0" />
+    <PackageReference Include="Avalonia.Controls.ColorPicker" Version="12.1.2" />
+  </ItemGroup>
+</Project>

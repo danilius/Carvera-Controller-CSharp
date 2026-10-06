@@ -102,6 +102,17 @@
         { "type": "jogPad", "axes": ["X", "Y", "Z"], "diagonals": true, "height": 190 },
         { "type": "jogStep", "height": 30 },
         {
+          "type": "stack", "orientation": "horizontal", "spacing": 6, "height": "auto",
+          "children": [
+            {
+              "type": "toggle", "text": "Continuous", "bind": "jog.buttonMode == 'continuous'", "command": "setJogMode",
+              "onArgs": { "mode": "continuous" }, "offArgs": { "mode": "step" },
+              "tooltip": "Off: one jog step per click or key press. On: the machine keeps moving while the button or key is held."
+            },
+            { "type": "toggle", "text": "Keys", "bind": "jog.keyboard", "command": "setJogKeyboard", "tooltip": "Jog with Ctrl+arrows and Ctrl+PageUp/PageDown. They follow the Continuous setting." }
+          ]
+        },
+        {
           "type": "choice", "height": 30, "bind": "jog.feed", "command": "setJogFeed",
           "options": [
             { "value": 500, "text": "500" }, { "value": 1500, "text": "1500" },
@@ -378,29 +389,6 @@
                         }
                       },
                       {
-                        "type": "stack", "title": "Machine settings", "spacing": 6,
-                        "children": [
-                          {
-                            "type": "stack", "orientation": "horizontal", "height": 34, "spacing": 6,
-                            "children": [
-                              { "type": "button", "class": "toolbar-button", "text": "Read from machine", "command": "configLoad", "width": "auto", "tooltip": "Read the machine's config.txt" },
-                              {
-                                "type": "button", "class": "toolbar-button", "text": "Send changes", "command": "configApply", "width": "auto",
-                                "tooltip": "Send the edited settings. They take effect after a reset.",
-                                "conditions": [ { "when": "config.pending > 0", "text": "Send {config.pending} change(s)", "background": "@warningSoft", "borderColor": "@warning" } ]
-                              },
-                              { "type": "button", "class": "toolbar-button", "text": "Discard", "command": "configDiscard", "width": "auto" },
-                              { "type": "spacer" },
-                              { "type": "button", "class": "toolbar-button", "text": "Restore defaults", "command": "configRestore", "width": "auto", "tooltip": "Restore the settings the machine saved as its defaults" },
-                              { "type": "button", "class": "toolbar-button", "text": "Save as default", "command": "configSaveDefault", "width": "auto", "tooltip": "Save the machine's current settings as its defaults" },
-                              { "type": "button", "class": "toolbar-button", "text": "Back up…", "command": "configBackup", "width": "auto", "tooltip": "Copy config.txt and the other configuration files from the SD card to a folder on this computer", "conditions": [ { "when": "transfer.active", "text": "Cancel: {transfer.phase} {transfer.percent:0}%", "background": "@warningSoft", "borderColor": "@warning" } ] },
-                              { "type": "button", "class": "toolbar-button", "text": "Update firmware…", "command": "updateFirmware", "width": "auto", "tooltip": "Send a firmware file to the machine, then reset it to install the update", "conditions": [ { "when": "transfer.active", "text": "Cancel: {transfer.phase} {transfer.percent:0}%", "background": "@warningSoft", "borderColor": "@warning" } ] }
-                            ]
-                          },
-                          { "type": "machineConfig" }
-                        ]
-                      },
-                      {
                         "type": "stack", "title": "Machine files", "spacing": 6,
                         "children": [
                           {
@@ -501,12 +489,12 @@
   "shortcuts": [
     { "key": "Escape", "command": "feedHold" },
     { "key": "Ctrl+Space", "command": "pauseResume" },
-    { "key": "Ctrl+Left", "command": "jog", "args": { "axis": "X-" } },
-    { "key": "Ctrl+Right", "command": "jog", "args": { "axis": "X+" } },
-    { "key": "Ctrl+Up", "command": "jog", "args": { "axis": "Y+" } },
-    { "key": "Ctrl+Down", "command": "jog", "args": { "axis": "Y-" } },
-    { "key": "Ctrl+PageUp", "command": "jog", "args": { "axis": "Z+" } },
-    { "key": "Ctrl+PageDown", "command": "jog", "args": { "axis": "Z-" } },
+    { "key": "Ctrl+Left", "command": "jogKey", "args": { "axis": "X-" }, "release": "jogKeyStop" },
+    { "key": "Ctrl+Right", "command": "jogKey", "args": { "axis": "X+" }, "release": "jogKeyStop" },
+    { "key": "Ctrl+Up", "command": "jogKey", "args": { "axis": "Y+" }, "release": "jogKeyStop" },
+    { "key": "Ctrl+Down", "command": "jogKey", "args": { "axis": "Y-" }, "release": "jogKeyStop" },
+    { "key": "Ctrl+PageUp", "command": "jogKey", "args": { "axis": "Z+" }, "release": "jogKeyStop" },
+    { "key": "Ctrl+PageDown", "command": "jogKey", "args": { "axis": "Z-" }, "release": "jogKeyStop" },
     { "key": "Ctrl+O", "command": "openFile" }
   ]
 }

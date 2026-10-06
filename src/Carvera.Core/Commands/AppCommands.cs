@@ -85,6 +85,7 @@ public static class AppCommands
         ConfigCommands.Register(registry, new Config.MachineConfigStore(controller), new NullHost());
         ProbeCommands.Register(registry, new NullHost());
         WorkCommands.Register(registry, new NullHost());
+        JobCommands.Register(registry, new NullHost(), new Probing.MemoryProbeStore());
         return registry;
     }
 

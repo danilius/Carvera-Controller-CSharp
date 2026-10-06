@@ -26,8 +26,42 @@ public sealed class AppServices : IDisposable
         ToolCommands.Register(Commands, host);
         MachineConfig = new MachineConfigStore(controller);
         ConfigCommands.Register(Commands, MachineConfig, host);
-        ProbeCommands.Register(Commands, host, new SettingsProbeStore(settings));
+        var probeStore = new SettingsProbeStore(settings);
+        ProbeCommands.Register(Commands, host, probeStore);
         WorkCommands.Register(Commands, host, MachineConfig);
+        JobCommands.Register(Commands, host, probeStore, MachineConfig);
+        // The jog options live in the state store (commands and layouts use them) and are kept in the settings.
+        State.Set(StatePaths.JogButtonMode, settings.JogButtonMode);
+        State.Set(StatePaths.JogKeyboard, settings.JogKeyboard);
+        State.Set(StatePaths.JogInvertY, settings.JogInvertY);
+        State.Set(StatePaths.ViewBedImage, settings.ShowBedImage);
+        State.Changed += paths =>
+        {
+            if (paths.Contains(StatePaths.ViewBedImage) && State.Get(StatePaths.ViewBedImage, true) != settings.ShowBedImage)
+            {
+                settings.ShowBedImage = State.Get(StatePaths.ViewBedImage, true);
+                settings.Save();
+            }
+            if (!paths.Contains(StatePaths.JogButtonMode) && !paths.Contains(StatePaths.JogKeyboard) && !paths.Contains(StatePaths.JogInvertY)) return;
+            settings.JogButtonMode = State.Get(StatePaths.JogButtonMode, "step");
+            settings.JogKeyboard = State.Get(StatePaths.JogKeyboard, true);
+            settings.JogInvertY = State.Get(StatePaths.JogInvertY, true);
+            settings.Save();
+        };
+        // Once per connection, when the machine first reports idle, read its config.txt: the bed picture and the anchor positions need it.
+        var configRequested = false;
+        State.Changed += paths =>
+        {
+            if (!paths.Contains(StatePaths.Connected) && !paths.Contains(StatePaths.MachineState)) return;
+            if (!State.Get(StatePaths.Connected, false)) { configRequested = false; return; }
+            if (configRequested || !settings.AutoReadConfig || MachineConfig.Loaded || State.Get<string>(StatePaths.MachineState) != "Idle") return;
+            configRequested = true;
+            _ = Task.Run(async () =>
+            {
+                try { await MachineConfig.LoadAsync(); }
+                catch (Exception ex) { Console.Warning("Could not read the machine's settings: " + ex.Message); }
+            });
+        };
         Pendants = new PendantService(this);
     }
 

@@ -19,6 +19,7 @@ public interface IProbeStore
     IReadOnlyDictionary<string, string> ProbeSettings(string family);
     DriftCorrection Drift { get; set; }
     ZProbeSetting ZProbe { get; set; }
+    Job.JobSettings Job { get; set; }
 }
 
 /// <summary>An in-memory store, for tests and for validating layouts.</summary>
@@ -29,6 +30,7 @@ public sealed class MemoryProbeStore : IProbeStore
         Families.TryGetValue(family, out var values) ? values : new Dictionary<string, string>();
     public DriftCorrection Drift { get; set; } = new(false, 0, 0);
     public ZProbeSetting ZProbe { get; set; } = ZProbeSetting.Default;
+    public Job.JobSettings Job { get; set; } = new();
 }
 
 /// <summary>What three ring-gauge measurements say about the probe.</summary>
@@ -44,12 +46,12 @@ public static class RingGaugeDrift
 {
     public static readonly (string Title, string Body)[] Steps =
     [
-        ("Marked cable position", "Rotate the probe to the USB cable position you will use for normal probing. Place a mark on the spindle or collar aligned with the cable, then probe the ring."),
+        ("Marked cable position", "Rotate the probe to the USB cable position you will use for normal probing."),
         ("Rotate 120 degrees left", "Return to the marked cable position, rotate the probe roughly 120 degrees to the left, then probe the ring again."),
         ("Rotate 120 degrees right", "Return to the marked cable position, rotate the probe roughly 120 degrees to the right, then probe the ring one more time."),
     ];
 
-    public const string Introduction = "Clamp the ring gauge so it cannot move. Mark the USB cable position you will use for normal probing, then align the cable to that mark before future probing.";
+    public const string Introduction = "Clamp the ring gauge so it cannot move.";
 
     /// <summary>Parameters of the probe-tip family that a ring-gauge probe copies; the tip diameter is added when the tip is to be compensated.</summary>
     private static readonly string[] CopiedCodes = ["X", "Y", "H", "F", "K", "L", "R", "Q", "C", "I"];

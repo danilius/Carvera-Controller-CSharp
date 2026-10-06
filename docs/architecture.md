@@ -53,6 +53,14 @@ Carvera Controller C# is a Windows desktop controller for Makera Carvera CNC mac
 - **`StateBinder`** moves state changes from the communication threads onto the UI thread, coalescing bursts.
 - **`MainWindow`** is the only fixed UI: an area for error and safety banners above the layout. It handles live reload (`FileSystemWatcher`), falling back to the embedded default layout, layout shortcuts, and the `IAppHost` services.
 
+## Layout editor (`src/Carvera.Editor`)
+
+A separate WinExe (`CarveraLayoutEditor`) that references `Carvera.Layout` and `Carvera.App`, so its preview is the real layout engine. See [layout-editor.md](layout-editor.md) for how it is used.
+
+- **Model** (`Model/`, no UI): `EditorDocument` keeps the text as the truth, the parsed JSON tree, undo snapshots and the loader's diagnostics (the same loader and validator as the Controller). `ElementOps` and `PartOps` are the structural edits (insert, move, wrap, regions, styles, shortcuts) on the JSON tree; `JsonPath`/`PathIndex` map the loader's paths (`root.children[2].width`) to JSON nodes and text positions; `JsonFormatter` writes files in the shipped style; `CompletionEngine` works out what can be typed at a caret; `LiveFile` writes atomically; `ControllerLink` is the pipe client.
+- **Views** (`Views/`, `Preview/`): the tree, the palette, the inspector (forms built from `ComponentCatalog` by property kind, `PropertyEditors`), the code tab (AvaloniaEdit), and `PreviewSurface`, which builds a `LayoutSession` against a controller "connected" to a stream that swallows everything, draws the selection overlay, and turns pointer input into selection, resize and drops. `DragService` implements drag and drop inside the window.
+- **Live link to the Controller**: the editor writes the file; the Controller's `MainWindow` watches every layout folder, resolves the current layout by name (so a copy saved in the user's folder takes over from the built-in one), skips the reload when nothing changed, and restores `ViewState` (tabs, scrolling, splitters, collapsed panels). `EditorLink` (Controller side) and `ControllerLink` (editor side) are a per-user named pipe carrying `reveal`, `inspect` (pick mode) and `load` requests and `layout`/`picked` events, never machine commands. Pipe writes go through `LineWriter` so the UI thread never waits for the other program.
+
 ## 3D view renderers
 
 The `toolpath` view has two renderers, chosen by *Settings > 3D view*:
@@ -98,6 +106,7 @@ Done:
 - Tool widgets, probing (all families), ring-gauge drift check, Z probe position, margin, auto-level, XYZ probe
 - Machine configuration editor, set work origin from an anchor, rotation, diagnose lamps
 - Gamepad, operation colour schemes, remembered folders for the file pickers
+- Desktop 2: job setup page (plan view of the bed, origin from anchor 1, anchor 2 or a probed position, Z probe, outline, auto-level), jog modes (click or hold, keys) with Y reversal, bed picture under the 3D view, machine settings and a search on the settings page
 
 Not yet ported from the Python controller:
 

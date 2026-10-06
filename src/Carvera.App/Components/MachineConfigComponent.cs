@@ -21,6 +21,7 @@ public static class MachineConfigComponent
         var store = ctx.Services.MachineConfig;
         var theme = ctx.Theme;
         var only = node.GetString("section");
+        string[] Words() => (ctx.State.Get<string>(StatePaths.SettingsSearch) ?? "").Split([' ', '	'], StringSplitOptions.RemoveEmptyEntries);
         var list = new StackPanel { Spacing = 2 };
         var building = false;
 
@@ -40,16 +41,22 @@ public static class MachineConfigComponent
             }
             var currentGroup = "";
             var section = "";
+            var words = Words();
+            var shown = 0;
+            var groupTitle = "";
             foreach (var item in store.Items)
             {
                 if (item.IsTitle)
                 {
                     currentGroup = item.Title;
+                    groupTitle = item.Title;
                     section = item.Section;
                     continue;
                 }
                 if (item.Section is not ("Basic" or "Advanced")) continue;
                 if (only is not null && !item.Section.Equals(only, StringComparison.OrdinalIgnoreCase)) continue;
+                if (!Matches(item, groupTitle, words)) continue;
+                shown++;
                 if (currentGroup.Length > 0)
                 {
                     list.Children.Add(new TextBlock { Text = (only is null ? item.Section + " · " : "") + currentGroup, FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 12, 0, 2) });
@@ -57,6 +64,8 @@ public static class MachineConfigComponent
                 }
                 list.Children.Add(Row(item));
             }
+            if (shown == 0 && words.Length > 0)
+                list.Children.Add(new TextBlock { Text = "No machine setting matches the search.", Foreground = theme.TokenBrush("textMuted"), Margin = new Thickness(6) });
             building = false;
         }
 
@@ -112,8 +121,17 @@ public static class MachineConfigComponent
         store.Changed += OnChanged;
         ctx.Track(new Detach(() => { store.Reset -= OnReset; store.Changed -= OnChanged; }));
         ctx.Watch([StatePaths.Connected], () => { if (!store.Loaded) Build(); });
+        ctx.Watch([StatePaths.SettingsSearch], Build);
         Build();
         return new ScrollViewer { Content = list, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled, Padding = new Thickness(0, 0, 10, 0) };
+    }
+
+    /// <summary>True when every word of the search is in the setting's group, title, description or key. No words match everything.</summary>
+    public static bool Matches(ConfigItem item, string group, IReadOnlyList<string> words)
+    {
+        if (words.Count == 0) return true;
+        var haystack = $"{group} {item.Section} {item.Title} {item.Description} {item.Key}";
+        return words.All(w => haystack.Contains(w, StringComparison.OrdinalIgnoreCase));
     }
 
     private sealed class Detach(Action action) : IDisposable

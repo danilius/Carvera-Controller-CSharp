@@ -31,4 +31,14 @@ public sealed class SettingsProbeStore(Settings settings) : IProbeStore
             settings.Save();
         }
     }
+
+    public Carvera.Core.Job.JobSettings Job
+    {
+        get => settings.JobSetup ?? new();
+        set
+        {
+            settings.JobSetup = value;
+            settings.Save();
+        }
+    }
 }

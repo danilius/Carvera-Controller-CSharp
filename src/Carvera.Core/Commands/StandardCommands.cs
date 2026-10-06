@@ -19,6 +19,13 @@ public static class StandardCommands
 
     private static readonly string[] MotionPaths = [StatePaths.MachineState];
 
+    /// <summary>Continuous Z jogging is capped to this feed (mm/min), as in the gamepad pendant and the Python controller.</summary>
+    public const double ContinuousZMaxFeed = 800;
+
+    /// <summary>-1 for Y when the command asks for screen directions and Y jogging is reversed, otherwise 1.</summary>
+    private static double ScreenSign(CommandContext c, CommandArgs a, char axis) =>
+        axis == 'Y' && a.GetBool("screen") == true && c.State.Get(StatePaths.JogInvertY, false) ? -1 : 1;
+
     private static bool CanMove(CommandContext c, CommandArgs _) =>
         c.State.Get<string>(StatePaths.MachineState) is not ("Alarm" or "Run" or "Hold" or "N/A" or "Sleep");
 
@@ -103,12 +110,56 @@ public static class StandardCommands
             if (moves.Count == 0) throw new ArgumentException($"Unknown jog axis '{a.GetString("axis")}'.");
             var direction = a.GetDouble("direction") ?? 1.0;
             var step = a.GetDouble("distance") ?? c.State.Get(StatePaths.JogStep, 1.0);
-            var distances = moves.ToDictionary(m => m.Key, m => m.Value * direction * step);
+            var distances = moves.ToDictionary(m => m.Key, m => ScreenSign(c, a, m.Key) * m.Value * direction * step);
             var feed = a.GetDouble("feed") ?? c.State.Get(StatePaths.JogFeed, 0.0);
             return c.Controller.SendLineAsync(MachineCommands.Jog(distances, feed));
-        }, "Relative jog by the current jog step (or 'distance'). 'axis' is X, Y, Z or A with an optional sign, and may combine axes: \"X+Y-\".",
+        }, "Relative jog by the current jog step (or 'distance'). 'axis' is X, Y, Z or A with an optional sign, and may combine axes: \"X+Y-\". With 'screen', Y follows the Reverse Y setting.",
         [P("axis", "string", "e.g. X, Z-, X+Y+", true), P("direction", "number", "+1 or -1 (multiplies the signs in 'axis')"),
-         P("distance", "number", "Overrides the jog step"), P("feed", "number", "mm/min; defaults to jog.feed")]);
+         P("distance", "number", "Overrides the jog step"), P("feed", "number", "mm/min; defaults to jog.feed"),
+         P("screen", "bool", "The axis is the direction on screen: Y is reversed when jog.invertY is set")]);
+        Motion("jogStart", "Jog while held", (c, a) =>
+        {
+            var moves = ParseJogAxes(a.GetString("axis") ?? "X");
+            if (moves.Count != 1) throw new ArgumentException("Continuous jogging moves one axis at a time.");
+            var (axis, sign) = moves.First();
+            var direction = ScreenSign(c, a, axis) * sign > 0 ? 1 : -1;
+            var feed = a.GetDouble("feed") ?? c.State.Get(StatePaths.JogFeed, 0.0);
+            if (axis == 'Z') feed = feed > 0 ? Math.Min(feed, ContinuousZMaxFeed) : ContinuousZMaxFeed;
+            return c.Controller.StartContinuousJogAsync($"{axis}{direction}", feed > 0 ? feed : null);
+        }, "Starts a continuous jog that runs until jogStop. One axis; a jog that is already running is left alone. With 'screen', Y follows the Reverse Y setting.",
+        [P("axis", "string", "e.g. X, Y-, Z", true), P("feed", "number", "mm/min; defaults to jog.feed (Z is capped)"),
+         P("screen", "bool", "The axis is the direction on screen: Y is reversed when jog.invertY is set")]);
+        Add("jogStop", "Stop jogging", "Motion", (c, _) => c.Controller.StopContinuousJogAsync(), "Stops a continuous jog.");
+        // The keys follow the mode of the jog pad: one step per press, or a continuous jog while the key is held.
+        Motion("jogKey", "Jog with a key", (c, a) =>
+        {
+            if (!c.State.Get(StatePaths.JogKeyboard, true)) return Task.CompletedTask;
+            return c.State.Get<string>(StatePaths.JogButtonMode) == "continuous"
+                ? registry.ExecuteAsync("jogStart", a.With("screen", true))
+                : registry.ExecuteAsync("jog", a.With("screen", true));
+        }, "Jogs from a key press, if keyboard jogging is on: one step in step mode, or continuously until the key is released (jogKeyStop) in continuous mode. Y follows the Reverse Y setting.",
+        [P("axis", "string", "e.g. X, Y-, Z", true)]);
+        Add("jogKeyStop", "Stop jogging with a key", "Motion", (c, _) =>
+            c.State.Get<string>(StatePaths.JogButtonMode) == "continuous" ? c.Controller.StopContinuousJogAsync() : Task.CompletedTask,
+            "Stops the continuous jog started by jogKey when the key is released. Does nothing in step mode.");
+        Add("setJogMode", "Set jog mode", "Motion", (c, a) =>
+        {
+            var mode = (a.GetString("mode") ?? a.GetString("value") ?? (c.State.Get<string>(StatePaths.JogButtonMode) == "continuous" ? "step" : "continuous")).ToLowerInvariant();
+            if (mode is not ("step" or "continuous")) throw new ArgumentException("The jog mode is 'step' or 'continuous'.");
+            c.State.Set(StatePaths.JogButtonMode, mode);
+            return Task.CompletedTask;
+        }, "Chooses whether jog buttons and keys move one step per click or continuously while held (toggles without 'mode').",
+            [P("mode", "string", "step or continuous"), P("value", "string", "Same as mode, for choice elements")], requiresConnection: false);
+        Add("setJogKeyboard", "Keyboard jogging", "Motion", (c, a) =>
+        {
+            c.State.Set(StatePaths.JogKeyboard, a.GetBool("on") ?? !c.State.Get(StatePaths.JogKeyboard, true));
+            return Task.CompletedTask;
+        }, "Turns the jog keys on or off (toggles without 'on').", [P("on", "bool", "Omit to toggle")], requiresConnection: false);
+        Add("setJogInvertY", "Reverse Y jogging", "Motion", (c, a) =>
+        {
+            c.State.Set(StatePaths.JogInvertY, a.GetBool("on") ?? !c.State.Get(StatePaths.JogInvertY, false));
+            return Task.CompletedTask;
+        }, "Reverses the Y direction of the jog pad and jog keys (toggles without 'on').", [P("on", "bool", "Omit to toggle")], requiresConnection: false);
         Add("setJogStep", "Set jog step", "Motion", (c, a) => { c.State.Set(StatePaths.JogStep, a.GetDouble("value") ?? 1.0); return Task.CompletedTask; },
             parameters: [P("value", "number", "Step in mm", true)], requiresConnection: false);
         Add("setJogFeed", "Set jog feed", "Motion", (c, a) => { c.State.Set(StatePaths.JogFeed, a.GetDouble("value") ?? 3000.0); return Task.CompletedTask; },

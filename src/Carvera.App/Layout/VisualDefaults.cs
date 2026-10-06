@@ -29,6 +29,7 @@ public static class VisualDefaults
     {
         ["button"] = Map(ButtonLike),
         ["toggle"] = Map(ButtonLike),
+        ["switch"] = Map(("normal", "padding: 2 4"), ("hover", "opacity: 0.9"), ("disabled", "opacity: 0.45")),
         ["choiceOption"] = Map(ButtonLike),
         ["jogButton"] = Map([.. ButtonLike, ("normal", "background: @surface; foreground: @text; borderColor: @border; borderWidth: 1; cornerRadius: 8; padding: 4; textAlign: center; fontWeight: semibold")]),
         ["panel"] = Map(
